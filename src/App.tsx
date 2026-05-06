@@ -43,6 +43,8 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [readAt, setReadAt] = useState<Record<string, number>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
+  const [replyText, setReplyText] = useState<string>('');
+  const [sendingReply, setSendingReply] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -240,6 +242,38 @@ export default function App() {
 
   const prevActiveContact = useRef(activeContact);
   const prevMessageCount = useRef(activeMessages.length);
+
+  const handleSendMessage = async (e: React.FormEvent) => {
+    e.preventDefault();
+    if (!replyText.trim() || !activeContact) return;
+
+    setSendingReply(true);
+    try {
+      const payload = {
+        to: activeContact,
+        text: replyText
+      };
+      
+      const response = await fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook-test/terima-pengiriman-pesan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      if (response.ok) {
+        setReplyText('');
+      } else {
+        console.error("Failed to send message: HTTP", response.status);
+      }
+      
+    } catch (error) {
+       console.error("Failed to send message", error);
+    } finally {
+      setSendingReply(false);
+    }
+  };
 
   const renderMessageBody = (text: string, query: string) => {
     if (!query.trim()) return text;
@@ -506,6 +540,34 @@ export default function App() {
                           )
                         })}
                         <div ref={messagesEndRef} />
+                     </div>
+                     <div className="p-3 bg-white border-t border-slate-200 z-10 shrink-0">
+                        <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
+                           <textarea
+                             className="flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none scrollbar-thin overflow-y-auto"
+                             placeholder="Ketik balasan..."
+                             rows={1}
+                             value={replyText}
+                             onChange={(e) => setReplyText(e.target.value)}
+                             onKeyDown={(e) => {
+                               if (e.key === 'Enter' && !e.shiftKey) {
+                                 e.preventDefault();
+                                 handleSendMessage(e as any);
+                               }
+                             }}
+                           />
+                           <button
+                             type="submit"
+                             disabled={!replyText.trim() || sendingReply}
+                             className="h-[44px] w-[44px] flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-200 text-white rounded-xl flex-shrink-0 transition-colors cursor-pointer"
+                           >
+                             {sendingReply ? (
+                               <RefreshCw className="w-5 h-5 animate-spin" />
+                             ) : (
+                               <Send className="w-5 h-5 ml-0.5" />
+                             )}
+                           </button>
+                        </form>
                      </div>
                    </>
                  ) : (
