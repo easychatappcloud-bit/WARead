@@ -1,0 +1,6 @@
+{
+  "name": "Cloudflare Pages API Example",
+  "description": "A template application demonstrating an API endpoint ready to be deployed to Cloudflare Pages.",
+  "requestFramePermissions": [],
+  "majorCapabilities": []
+}

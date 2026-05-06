@@ -1,0 +1,204 @@
+/**
+ * @license
+ * SPDX-License-Identifier: Apache-2.0
+ */
+
+import { useState } from 'react';
+import { Server, Send, Code, Cloud, RefreshCw } from 'lucide-react';
+
+export default function App() {
+  const [response, setResponse] = useState<string>('');
+  const [loading, setLoading] = useState<boolean>(false);
+  const [method, setMethod] = useState<'GET' | 'POST'>('GET');
+  const [postData, setPostData] = useState<string>('{\n  "nama": "AI Developer"\n}');
+
+  const handleTestAPI = async () => {
+    setLoading(true);
+    try {
+      const options: RequestInit = {
+        method,
+        headers: {
+          'Content-Type': 'application/json',
+        },
+      };
+
+      if (method === 'POST') {
+        options.body = postData;
+      }
+
+      const res = await fetch('/api/hello', options);
+      const data = await res.json();
+      setResponse(JSON.stringify(data, null, 2));
+    } catch (error: any) {
+      setResponse(JSON.stringify({ error: error.message }, null, 2));
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  return (
+    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+      {/* Header Navigation */}
+      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-8 flex-shrink-0">
+        <div className="flex items-center space-x-4">
+          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
+            E
+          </div>
+          <div className="flex items-center space-x-2">
+            <span className="text-slate-400 font-medium text-sm">Projects</span>
+            <span className="text-slate-300">/</span>
+            <h1 className="text-slate-900 font-semibold text-sm tracking-tight">cloudflare-pages-api</h1>
+          </div>
+        </div>
+        <div className="flex items-center space-x-6">
+          <div className="flex items-center space-x-2">
+            <span className="w-2 h-2 bg-emerald-500 rounded-full animate-pulse"></span>
+            <span className="hidden md:inline text-xs font-semibold text-slate-600 uppercase tracking-wider">Dev Server</span>
+          </div>
+        </div>
+      </header>
+
+      <main className="flex-1 p-6 md:p-8 grid grid-cols-1 md:grid-cols-12 gap-6 w-full max-w-[1400px] mx-auto overflow-y-auto">
+        
+        {/* Left Column */}
+        <div className="md:col-span-5 flex flex-col gap-6">
+          
+          {/* Info Card replacing old Hero */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">About Template</h2>
+            <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">API Endpoint Generator</h3>
+            <p className="text-sm text-slate-500 leading-relaxed">
+              Aplikasi ini dirancang sebagai contoh endpoint API. Di mode preview ini, ia menggunakan Express. Saat di-deploy ke Cloudflare Pages, folder <code className="text-indigo-600 font-mono text-xs bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">functions/</code> akan otomatis berjalan sebagai Serverless Functions.
+            </p>
+          </div>
+
+          {/* Test Endpoint Panel */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Test Local Endpoint</h2>
+            
+            <div className="space-y-5">
+               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center justify-between">
+                <code className="text-sm text-indigo-600 font-mono overflow-hidden truncate">/api/hello</code>
+              </div>
+
+              <div className="space-y-2">
+                <label className="text-xs font-medium text-slate-500">Metode Request</label>
+                <div className="flex space-x-2">
+                  <button
+                    onClick={() => setMethod('GET')}
+                    className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
+                      method === 'GET' 
+                        ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm' 
+                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    GET
+                  </button>
+                  <button
+                    onClick={() => setMethod('POST')}
+                    className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
+                      method === 'POST' 
+                        ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-sm' 
+                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                    }`}
+                  >
+                    POST
+                  </button>
+                </div>
+              </div>
+
+              {method === 'POST' && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">JSON Body (POST Data)</label>
+                  <textarea
+                    value={postData}
+                    onChange={(e) => setPostData(e.target.value)}
+                    className="w-full h-32 p-4 font-mono text-sm bg-slate-50 border border-slate-100 text-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-inner"
+                    spellCheck="false"
+                  />
+                </div>
+              )}
+
+              <button
+                onClick={handleTestAPI}
+                disabled={loading}
+                className="w-full flex items-center justify-center space-x-2 py-3 bg-slate-900 border border-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all shadow-sm mt-2 disabled:opacity-70"
+              >
+                {loading ? (
+                  <RefreshCw className="w-4 h-4 animate-spin" />
+                ) : (
+                  <>
+                    <Send className="w-4 h-4" />
+                    <span>Kirim Request</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+          
+        </div>
+
+        {/* Right Column */}
+        <div className="md:col-span-7 flex flex-col gap-6">
+          
+          {/* Response Panel */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[400px] md:min-h-[400px]">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
+                <Code className="w-4 h-4" />
+                <span>JSON Response</span>
+              </h2>
+              {loading && (
+                <div className="flex items-center space-x-2">
+                  <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
+                  <span className="text-xs text-slate-500">Memproses request...</span>
+                </div>
+              )}
+            </div>
+            
+            <div className="flex-1 overflow-hidden relative rounded-b-2xl">
+              {response ? (
+                <pre className="p-6 text-sm font-mono text-slate-700 overflow-auto h-full w-full absolute inset-0 bg-slate-50/50">
+                  {response}
+                </pre>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 bg-slate-50/50">
+                  <Server className="w-8 h-8 opacity-20" />
+                  <p className="text-sm font-medium">Response akan tampil di sini</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Deployment Details */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Deployment Guide</h2>
+            <div className="space-y-4">
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <span className="text-sm text-slate-500">Platform</span>
+                <span className="text-sm font-medium text-slate-900">Cloudflare Pages</span>
+              </div>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <span className="text-sm text-slate-500">Step 1</span>
+                <span className="text-sm font-medium text-slate-900 text-right">Export ke GitHub</span>
+              </div>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <span className="text-sm text-slate-500">Step 2</span>
+                <span className="text-sm font-medium text-slate-900 text-right">Connect Git ke Cloudflare Pages</span>
+              </div>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <span className="text-sm text-slate-500">Build Command</span>
+                <code className="bg-slate-50 border border-slate-100 rounded-md px-2 py-1 text-xs font-mono text-indigo-600">npm run build</code>
+              </div>
+              <div className="flex justify-between items-center">
+                <span className="text-sm text-slate-500">Build Directory</span>
+                <code className="bg-slate-50 border border-slate-100 rounded-md px-2 py-1 text-xs font-mono text-indigo-600">dist</code>
+              </div>
+            </div>
+          </div>
+          
+        </div>
+      </main>
+    </div>
+  );
+}
