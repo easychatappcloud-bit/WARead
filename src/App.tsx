@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings } from 'lucide-react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
@@ -41,6 +41,13 @@ export default function App() {
   const [activeTab, setActiveTab] = useState<'inbox' | 'webhook' | 'setup'>('inbox');
   const [activeContact, setActiveContact] = useState<string | null>(null);
   const [readAt, setReadAt] = useState<Record<string, number>>({});
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
+
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
+  };
+
 
   useEffect(() => {
     // Fetch initial settings for sheet url
@@ -216,6 +223,10 @@ export default function App() {
   }, [chatMessages, activeContact]);
 
   useEffect(() => {
+    scrollToBottom();
+  }, [activeMessages, activeContact]);
+
+  useEffect(() => {
     let timeoutId: NodeJS.Timeout;
 
     const fetchLogs = async () => {
@@ -305,6 +316,13 @@ export default function App() {
       {/* Header Navigation */}
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-8 flex-shrink-0">
         <div className="flex items-center space-x-4">
+          <button 
+            onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
+            className="p-2 -ml-2 text-slate-500 hover:bg-slate-100 rounded-lg transition-colors"
+            title="Toggle Sidebar"
+          >
+            <Menu className="w-5 h-5" />
+          </button>
           <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
             E
           </div>
@@ -325,30 +343,32 @@ export default function App() {
       <main className="flex-1 w-full max-w-[1400px] mx-auto overflow-hidden flex flex-col md:flex-row">
         
         {/* Sidebar Tabs */}
-        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-slate-200 bg-white p-4 flex flex-col space-y-2 flex-shrink-0">
-          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Menu Utama</div>
-          <button 
-            onClick={() => setActiveTab('inbox')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'inbox' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <MessageSquare className="w-5 h-5" />
-            <span>Chat Inbox</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('webhook')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'webhook' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <Terminal className="w-5 h-5" />
-            <span>Webhook Logs</span>
-          </button>
-          <button 
-            onClick={() => setActiveTab('setup')}
-            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'setup' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
-          >
-            <Settings className="w-5 h-5" />
-            <span>Setup & Testing</span>
-          </button>
-        </div>
+        {isSidebarOpen && (
+          <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-slate-200 bg-white p-4 flex flex-col space-y-2 flex-shrink-0">
+            <div className="text-xs font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Menu Utama</div>
+            <button 
+              onClick={() => setActiveTab('inbox')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'inbox' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <MessageSquare className="w-5 h-5" />
+              <span>Chat Inbox</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('webhook')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'webhook' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Terminal className="w-5 h-5" />
+              <span>Webhook Logs</span>
+            </button>
+            <button 
+              onClick={() => setActiveTab('setup')}
+              className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'setup' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+            >
+              <Settings className="w-5 h-5" />
+              <span>Setup & Testing</span>
+            </button>
+          </div>
+        )}
 
         {/* Main Content Area */}
         <div className="flex-1 min-w-0 bg-slate-50 overflow-y-auto p-4 md:p-8 flex flex-col">
@@ -405,7 +425,7 @@ export default function App() {
                </div>
 
                {/* Chat Panel */}
-               <div className="flex-1 flex flex-col bg-[#efeae2] relative h-full">
+               <div className="flex-1 flex flex-col bg-[#efeae2] relative h-full overflow-hidden">
                  <div className="absolute inset-0 opacity-[0.06] pointer-events-none z-0" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
                  
                  {activeContact ? (
@@ -431,6 +451,7 @@ export default function App() {
                             </div>
                           )
                         })}
+                        <div ref={messagesEndRef} />
                      </div>
                    </>
                  ) : (
