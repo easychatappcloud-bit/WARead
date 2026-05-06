@@ -45,7 +45,6 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [replyText, setReplyText] = useState<string>('');
   const [sendingReply, setSendingReply] = useState<boolean>(false);
-  const [sendError, setSendError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -140,7 +139,6 @@ export default function App() {
                        senderName,
                        senderNumber,
                        body: msg.text?.body || '',
-                       fromMe: !!msg.fromMe,
                        raw: log
                     });
                 }
@@ -250,14 +248,13 @@ export default function App() {
     if (!replyText.trim() || !activeContact) return;
 
     setSendingReply(true);
-    setSendError(null);
     try {
       const payload = {
         to: activeContact,
         text: replyText
       };
       
-      const response = await fetch('/api/send-message', {
+      const response = await fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook-test/terima-pengiriman-pesan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
@@ -267,36 +264,12 @@ export default function App() {
       
       if (response.ok) {
         setReplyText('');
-        
-        // Push duplicate to local webhook to show it and save to Gsheet
-        const senderName = contacts.find(c => c.senderNumber === activeContact)?.senderName || activeContact;
-        const fakeWebhookPayload = {
-           messaging_product: 'whatsapp',
-           contacts: [{ wa_id: activeContact, profile: { name: senderName } }],
-           messages: [{
-              fromMe: true,
-              id: 'sent-' + Date.now(),
-              timestamp: Math.floor(Date.now() / 1000).toString(),
-              type: 'text',
-              text: { body: replyText }
-           }]
-        };
-        fetch('/api/webhook', {
-           method: 'POST',
-           headers: { 'Content-Type': 'application/json', 'x-webhook-signature': 'internal-sent-message' },
-           body: JSON.stringify(fakeWebhookPayload)
-        }).catch(e => console.error("Failed to write to local log/sheet", e));
-
       } else {
-        const errorData = await response.json();
-        const errorMessage = errorData.error || response.statusText || 'Gagal mengirim pesan';
-        console.error("Failed to send message:", errorMessage);
-        setSendError(`Error n8n: ${response.status === 404 ? 'Webhook tidak aktif. Klik "Execute workflow" di n8n untuk webhook dengan URL "-test" atau ganti URL ke production webhook.' : errorMessage}`);
+        console.error("Failed to send message: HTTP", response.status);
       }
       
-    } catch (error: any) {
+    } catch (error) {
        console.error("Failed to send message", error);
-       setSendError(`Koneksi error: ${error.message}`);
     } finally {
       setSendingReply(false);
     }
@@ -556,28 +529,26 @@ export default function App() {
                      </div>
                      <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
                         {activeMessages.map((msg, idx) => {
-                          const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber && activeMessages[idx - 1].fromMe === msg.fromMe;
-                          const isMe = msg.fromMe;
+                          const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber;
                           return (
-                            <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${isMe ? `bg-[#dcf8c6] border-[#dcf8c6] self-end ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tr-sm mt-4'}` : `bg-white border-slate-100 self-start ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}`}>
+                            <div key={msg.id} className={`bg-white p-3 shadow-sm border border-slate-100 max-w-[85%] md:max-w-[70%] self-start flex flex-col relative ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}>
                               <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
-                              <div className={`text-[10px] text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px] ${isMe ? 'text-emerald-700/70' : 'text-slate-400'}`}>
+                              <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
                                 <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                {isMe && <CheckCircle2 className="w-3 h-3 ml-1 opacity-70" />}
                               </div>
                             </div>
                           )
                         })}
                         <div ref={messagesEndRef} />
                      </div>
-                     <div className="p-3 bg-white border-t border-slate-200 z-10 shrink-0 flex flex-col">
+                     <div className="p-3 bg-white border-t border-slate-200 z-10 shrink-0">
                         <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
                            <textarea
                              className="flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none scrollbar-thin overflow-y-auto"
                              placeholder="Ketik balasan..."
                              rows={1}
                              value={replyText}
-                             onChange={(e) => { setReplyText(e.target.value); setSendError(null); }}
+                             onChange={(e) => setReplyText(e.target.value)}
                              onKeyDown={(e) => {
                                if (e.key === 'Enter' && !e.shiftKey) {
                                  e.preventDefault();
@@ -597,11 +568,6 @@ export default function App() {
                              )}
                            </button>
                         </form>
-                        {sendError && (
-                          <div className="mt-2 text-xs text-red-500 bg-red-50 p-2 rounded-lg border border-red-100 flex items-start">
-                            <span className="font-semibold mr-1">Gagal:</span> {sendError}
-                          </div>
-                        )}
                      </div>
                    </>
                  ) : (

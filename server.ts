@@ -42,26 +42,6 @@ async function startServer() {
     res.json({ url: GOOGLE_SHEETS_URL });
   });
 
-  app.post("/api/send-message", async (req, res) => {
-    try {
-      const { to, text } = req.body;
-      const response = await fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook-test/terima-pengiriman-pesan', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-        },
-        body: JSON.stringify({ to, text })
-      });
-      if (response.ok) {
-        res.json({ success: true });
-      } else {
-        res.status(response.status).json({ error: "Failed to send to n8n" });
-      }
-    } catch (e: any) {
-      res.status(500).json({ error: e.message });
-    }
-  });
-
   // Simulasi Endpoint Webhook
   app.post("/api/webhook", async (req, res) => {
     const signature = req.headers["x-webhook-signature"] || req.headers["stripe-signature"] || "none";
