@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect, useMemo } from 'react';
+import { useState, useEffect, useMemo, useRef } from 'react';
 import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings } from 'lucide-react';
 
 export default function App() {
@@ -51,6 +51,50 @@ export default function App() {
       })
       .catch(() => {});
   }, []);
+
+  const latestReadRef = useRef<Record<string, number>>({});
+
+  const mergedReadAt = useMemo(() => {
+     const readDict: Record<string, number> = {};
+     webhookLogs.forEach(log => {
+        let payloadArr = log.payload;
+        if (!Array.isArray(payloadArr)) {
+          if (payloadArr && payloadArr.received_payload) payloadArr = payloadArr.received_payload;
+          else payloadArr = [payloadArr];
+        }
+        if (!Array.isArray(payloadArr)) payloadArr = [payloadArr];
+
+        payloadArr.forEach((entry: any) => {
+           if (entry && entry.event === 'mark_read' && entry.data) {
+               const sn = entry.data.senderNumber;
+               const ts = entry.data.timestamp;
+               if (sn && ts) {
+                  if (!readDict[sn] || ts > readDict[sn]) {
+                      readDict[sn] = ts;
+                  }
+               }
+           }
+        });
+     });
+     return { ...readDict, ...readAt };
+  }, [webhookLogs, readAt]);
+
+  useEffect(() => {
+    latestReadRef.current = mergedReadAt;
+  }, [mergedReadAt]);
+
+  const visibleWebhookLogs = useMemo(() => {
+    return webhookLogs.filter(log => {
+      if (log.id === 'error' || log.id === 'cf-pages-notice') return true;
+      let pArr = log.payload;
+      if (!Array.isArray(pArr)) {
+         if (pArr && pArr.received_payload) pArr = pArr.received_payload;
+         else pArr = [pArr];
+      }
+      if (!Array.isArray(pArr)) return true;
+      return !pArr.some((p: any) => p && p.event === 'mark_read');
+    });
+  }, [webhookLogs]);
 
   const chatMessages = useMemo(() => {
     const messages: any[] = [];
@@ -104,7 +148,7 @@ export default function App() {
        
        let isUnread = 0;
        if (msg.senderNumber !== activeContact) {
-           const lastRead = readAt[msg.senderNumber] || 0;
+           const lastRead = mergedReadAt[msg.senderNumber] || 0;
            if (msg.timestamp.getTime() > lastRead) {
                isUnread = 1;
            }
@@ -127,11 +171,36 @@ export default function App() {
        }
     });
     return Array.from(map.values()).sort((a, b) => b.lastTimestamp.getTime() - a.lastTimestamp.getTime());
-  }, [chatMessages, activeContact, readAt]);
+  }, [chatMessages, activeContact, mergedReadAt]);
 
   useEffect(() => {
      if (activeContact) {
-        setReadAt(prev => ({ ...prev, [activeContact]: Date.now() }));
+        const contactMsgs = chatMessages.filter(m => m.senderNumber === activeContact);
+        if (contactMsgs.length > 0) {
+           const latestMsgTs = contactMsgs[contactMsgs.length - 1].timestamp.getTime();
+           const currentReadTs = latestReadRef.current[activeContact] || 0;
+           
+           if (latestMsgTs > currentReadTs) {
+              const newTs = Date.now();
+              setReadAt(prev => ({ ...prev, [activeContact]: newTs }));
+              latestReadRef.current[activeContact] = newTs;
+              
+              fetch('/api/webhook', {
+                method: 'POST',
+                headers: {
+                  'Content-Type': 'application/json',
+                  'x-webhook-signature': 'internal-read-receipt'
+                },
+                body: JSON.stringify({
+                  event: "mark_read",
+                  data: {
+                    senderNumber: activeContact,
+                    timestamp: newTs
+                  }
+                })
+              }).catch(console.error);
+           }
+        }
      }
   }, [activeContact, chatMessages]);
 
@@ -388,7 +457,7 @@ export default function App() {
               </div>
               
               <div className="flex-1 overflow-x-auto overflow-y-auto">
-                {webhookLogs.length > 0 ? (
+                {visibleWebhookLogs.length > 0 ? (
                   <table className="w-full text-left border-collapse">
                     <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-sm z-10 hidden md:table-header-group">
                       <tr className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
@@ -398,7 +467,7 @@ export default function App() {
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-slate-100 flex-1">
-                      {webhookLogs.map((log) => (
+                      {visibleWebhookLogs.map((log) => (
                         <tr key={log.id} className="text-sm group hover:bg-slate-50/50 transition-colors flex flex-col md:table-row">
                           <td className="px-6 py-3 md:py-4 flex justify-between md:table-cell border-b border-slate-100 md:border-b-0">
                              <div className="flex items-center space-x-2">
