@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu } from 'lucide-react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
@@ -40,6 +40,7 @@ export default function App() {
   const [sheetSaved, setSheetSaved] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'webhook' | 'setup'>('inbox');
   const [activeContact, setActiveContact] = useState<string | null>(null);
+  const [searchQuery, setSearchQuery] = useState<string>('');
   const [readAt, setReadAt] = useState<Record<string, number>>({});
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
   const messagesEndRef = useRef<HTMLDivElement>(null);
@@ -180,6 +181,21 @@ export default function App() {
     return Array.from(map.values()).sort((a, b) => b.lastTimestamp.getTime() - a.lastTimestamp.getTime());
   }, [chatMessages, activeContact, mergedReadAt]);
 
+  const filteredContacts = useMemo(() => {
+    if (!searchQuery.trim()) return contacts;
+    const query = searchQuery.toLowerCase();
+    
+    return contacts.filter(c => {
+      if (c.senderName.toLowerCase().includes(query)) return true;
+      if (c.senderNumber.includes(query)) return true;
+      // check if any messages match
+      const hasMatchingMsg = chatMessages.some(msg => 
+         msg.senderNumber === c.senderNumber && msg.body.toLowerCase().includes(query)
+      );
+      return hasMatchingMsg;
+    });
+  }, [contacts, searchQuery, chatMessages]);
+
   useEffect(() => {
      if (activeContact) {
         const contactMsgs = chatMessages.filter(m => m.senderNumber === activeContact);
@@ -224,6 +240,20 @@ export default function App() {
 
   const prevActiveContact = useRef(activeContact);
   const prevMessageCount = useRef(activeMessages.length);
+
+  const renderMessageBody = (text: string, query: string) => {
+    if (!query.trim()) return text;
+    const parts = text.split(new RegExp(`(${query})`, 'gi'));
+    return (
+      <>
+        {parts.map((part, i) => 
+          part.toLowerCase() === query.toLowerCase() ? 
+            <mark key={i} className="bg-emerald-200 text-slate-900 rounded-sm px-0.5">{part}</mark> : 
+            part
+        )}
+      </>
+    );
+  };
 
   useEffect(() => {
     if (activeContact !== prevActiveContact.current || activeMessages.length !== prevMessageCount.current) {
@@ -394,9 +424,26 @@ export default function App() {
                       <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Live</span>
                    </div>
                  </div>
+
+                 {/* Search Bar */}
+                 <div className="p-3 border-b border-slate-200 bg-white shadow-sm shrink-0">
+                   <div className="relative">
+                     <div className="absolute inset-y-0 left-0 pl-3 flex items-center pointer-events-none">
+                       <Search className="h-4 w-4 text-slate-400" />
+                     </div>
+                     <input
+                       type="text"
+                       placeholder="Search chats or messages..."
+                       className="block w-full pl-10 pr-3 py-2 border border-slate-200 rounded-xl leading-5 bg-slate-50 placeholder-slate-400 focus:outline-none focus:bg-white focus:ring-1 focus:ring-emerald-500 focus:border-emerald-500 sm:text-sm transition-colors"
+                       value={searchQuery}
+                       onChange={(e) => setSearchQuery(e.target.value)}
+                     />
+                   </div>
+                 </div>
+
                  <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
-                    {contacts.length > 0 ? (
-                      contacts.map(contact => (
+                    {filteredContacts.length > 0 ? (
+                      filteredContacts.map(contact => (
                          <div 
                            key={contact.senderNumber} 
                            onClick={() => setActiveContact(contact.senderNumber)}
@@ -451,7 +498,7 @@ export default function App() {
                           const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber;
                           return (
                             <div key={msg.id} className={`bg-white p-3 shadow-sm border border-slate-100 max-w-[85%] md:max-w-[70%] self-start flex flex-col relative ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}>
-                              <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{msg.body}</p>
+                              <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
                               <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
                                 <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                               </div>
