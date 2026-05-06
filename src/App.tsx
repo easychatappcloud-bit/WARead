@@ -3,19 +3,42 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState, useEffect } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2 } from 'lucide-react';
+import { useState, useEffect, useMemo } from 'react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [endpoint, setEndpoint] = useState<string>('/api/hello');
   const [method, setMethod] = useState<'GET' | 'POST'>('GET');
-  const [postData, setPostData] = useState<string>('{\n  "nama": "AI Developer"\n}');
+  const defaultWhatsAppPayload = `{
+  "status": "success",
+  "received_payload": [
+    {
+      "messaging_product": "whatsapp",
+      "contacts": [
+        {
+          "profile": { "name": "Ridwan Tassa" },
+          "wa_id": "6282255553833"
+        }
+      ],
+      "messages": [
+        {
+          "from": "6282255553833",
+          "timestamp": "${Math.floor(Date.now() / 1000)}",
+          "text": { "body": "Haloo, ini contoh pesan webhook baru" },
+          "type": "text"
+        }
+      ]
+    }
+  ]
+}`;
+  const [postData, setPostData] = useState<string>(defaultWhatsAppPayload);
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [isSavingSheet, setIsSavingSheet] = useState<boolean>(false);
   const [sheetSaved, setSheetSaved] = useState<boolean>(false);
+  const [activeTab, setActiveTab] = useState<'inbox' | 'webhook' | 'setup'>('inbox');
 
   useEffect(() => {
     // Fetch initial settings for sheet url
@@ -26,6 +49,52 @@ export default function App() {
       })
       .catch(() => {});
   }, []);
+
+  const chatMessages = useMemo(() => {
+    const messages: any[] = [];
+    webhookLogs.forEach(log => {
+      if (log.id === 'error' || log.id === 'cf-pages-notice') return;
+
+      let payloadArr = log.payload;
+      
+      if (!Array.isArray(payloadArr)) {
+        if (payloadArr && payloadArr.received_payload) {
+             payloadArr = payloadArr.received_payload;
+        } else {
+             payloadArr = [payloadArr];
+        }
+      }
+      
+      if (!Array.isArray(payloadArr)) {
+         payloadArr = [payloadArr];
+      }
+
+      payloadArr.forEach(entry => {
+         if (entry && entry.messaging_product === 'whatsapp' && entry.messages) {
+            const contact = entry.contacts && entry.contacts[0] ? entry.contacts[0] : null;
+            const senderName = contact?.profile?.name || contact?.wa_id || 'Unknown';
+            const senderNumber = contact?.wa_id || '';
+            
+            entry.messages.forEach((msg: any) => {
+                if (msg.type === 'text') {
+                    messages.push({
+                       id: msg.id || log.id + Math.random().toString(),
+                       timestamp: msg.timestamp ? new Date(parseInt(msg.timestamp) * 1000) : new Date(log.timestamp),
+                       senderName,
+                       senderNumber,
+                       body: msg.text?.body || '',
+                       raw: log
+                    });
+                }
+            });
+         }
+      });
+    });
+    
+    // Sort descending by default? No, usually chat is ascending (oldest to newest) inside the window,
+    // assuming it's a feed. But since we want the latest at the bottom, we should sort ascending.
+    return messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
+  }, [webhookLogs]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -134,361 +203,245 @@ export default function App() {
         </div>
       </header>
 
-      <main className="flex-1 p-6 md:p-8 grid grid-cols-1 md:grid-cols-12 gap-6 w-full max-w-[1400px] mx-auto overflow-y-auto">
+      <main className="flex-1 w-full max-w-[1400px] mx-auto overflow-hidden flex flex-col md:flex-row">
         
-        {/* Left Column */}
-        <div className="md:col-span-5 flex flex-col gap-6">
-          
-          {/* Info Card replacing old Hero */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">About Template</h2>
-            <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">API Endpoint Generator</h3>
-            <p className="text-sm text-slate-500 leading-relaxed mb-4">
-              Aplikasi ini dirancang sebagai contoh endpoint API. Di mode preview ini, ia menggunakan Express. Saat di-deploy ke Cloudflare Pages, folder <code className="text-indigo-600 font-mono text-xs bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">functions/</code> akan otomatis berjalan sebagai Serverless Functions.
-            </p>
-            <div className="mt-4 space-y-4">
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Live Webhook URL Anda</label>
-                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center justify-between">
-                  <code className="text-xs text-indigo-600 font-mono overflow-hidden truncate flex-1 select-all">
-                    {typeof window !== 'undefined' ? `${window.location.origin}/api/webhook` : 'Loading...'}
-                  </code>
-                  <button 
-                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/webhook`)}
-                    className="ml-4 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
-                  >
-                    Copy URL
-                  </button>
-                </div>
-              </div>
-              
-              <div>
-                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">cURL untuk n8n (Import cURL)</label>
-                <div className="bg-slate-900 rounded-xl p-4 flex flex-col relative group">
-                  <code className="text-xs text-green-400 font-mono whitespace-pre overflow-x-auto pb-2">
-{`curl -X POST ${typeof window !== 'undefined' ? window.location.origin : 'URL'}/api/webhook \\
--H "Content-Type: application/json" \\
--H "x-webhook-signature: test-dari-n8n" \\
--d '{
-  "event": "test_webhook",
-  "data": {
-    "message": "Hello from n8n!",
-    "status": "success"
-  }
-}'`}
-                  </code>
-                  <button 
-                    onClick={() => {
-                      const curl = `curl -X POST ${window.location.origin}/api/webhook \\\n-H "Content-Type: application/json" \\\n-H "x-webhook-signature: test-dari-n8n" \\\n-d '{\n  "event": "test_webhook",\n  "data": {\n    "message": "Hello from n8n!",\n    "status": "success"\n  }\n}'`;
-                      navigator.clipboard.writeText(curl);
-                    }}
-                    className="absolute top-2 right-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold transition-colors opacity-0 group-hover:opacity-100"
-                  >
-                    Copy cURL
-                  </button>
-                </div>
-              </div>
-            </div>
-          </div>
-
-          {/* Test Endpoint Panel */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Test Local Endpoint</h2>
-            
-            <div className="space-y-5">
-              
-              <div className="space-y-2">
-                <label className="text-xs font-medium text-slate-500">Pilih Endpoint</label>
-                <select 
-                  value={endpoint} 
-                  onChange={(e) => setEndpoint(e.target.value)}
-                  className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none hover:border-indigo-300 transition-colors cursor-pointer appearance-none"
-                >
-                  <option value="/api/hello">/api/hello (Default API)</option>
-                  <option value="/api/webhook">/api/webhook (Terima Webhook)</option>
-                </select>
-              </div>
-
-              {endpoint === '/api/hello' ? (
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-500">Metode Request</label>
-                  <div className="flex space-x-2">
-                    <button
-                      onClick={() => setMethod('GET')}
-                      className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
-                        method === 'GET' 
-                          ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm' 
-                          : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      GET
-                    </button>
-                    <button
-                      onClick={() => setMethod('POST')}
-                      className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
-                        method === 'POST' 
-                          ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-sm' 
-                          : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                      }`}
-                    >
-                      POST
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
-                   <p className="text-sm text-emerald-800">
-                     <strong className="block text-emerald-900 mb-1">Mode Webhook</strong>
-                     Webhook selalu menggunakan metode <strong>POST</strong>. Request ini akan dikirimkan otomatis dengan header "x-webhook-signature" simulasi.
-                   </p>
-                </div>
-              )}
-
-              {(method === 'POST' || endpoint === '/api/webhook') && (
-                <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-500">JSON Body (Payload Webhook/POST)</label>
-                  <textarea
-                    value={postData}
-                    onChange={(e) => setPostData(e.target.value)}
-                    className="w-full h-32 p-4 font-mono text-sm bg-slate-50 border border-slate-100 text-slate-700 rounded-xl focus:ring-2 focus:ring-indigo-500 focus:border-indigo-500 outline-none transition-all shadow-inner"
-                    spellCheck="false"
-                  />
-                </div>
-              )}
-
-              <button
-                onClick={handleTestAPI}
-                disabled={loading}
-                className="w-full flex items-center justify-center space-x-2 py-3 bg-slate-900 border border-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all shadow-sm mt-2 disabled:opacity-70"
-              >
-                {loading ? (
-                  <RefreshCw className="w-4 h-4 animate-spin" />
-                ) : (
-                  <>
-                    <Send className="w-4 h-4" />
-                    <span>Kirim Request</span>
-                  </>
-                )}
-              </button>
-            </div>
-          </div>
-
-          {/* Setup Gratis Database (Google Sheet) */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center space-x-2">
-               <Database className="w-4 h-4" />
-               <span>Database Gratis (Google Sheets API)</span>
-            </h2>
-            <div className="space-y-4">
-              <p className="text-sm text-slate-500 leading-relaxed">
-                Di Cloudflare Pages, Worker bersifat stateless. Supaya data n8n tersimpan dengan gratis selamanya tanpa butuh database berbayar, gunakan Google Apps Script. 
-              </p>
-              
-              <div className="text-sm bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-emerald-800 space-y-2">
-                <p className="font-semibold text-emerald-900 mb-2">Cara Setup:</p>
-                <ol className="list-decimal list-inside space-y-2">
-                  <li>Buat Spreadsheet Baru di <a href="https://sheets.new" target="_blank" rel="noreferrer" className="underline font-semibold">sheets.new</a></li>
-                  <li>Rename nama sheet yang ada di paling bawah kiri menjadi <strong>Logs</strong>.</li>
-                  <li>Di menu atas, pilih <strong>Extensions</strong> {'->'} <strong>Apps Script</strong>.</li>
-                  <li>Hapus semua kode, lalu paste script di bawah ini.</li>
-                  <li>Klik <strong>Deploy</strong> {'->'} <strong>New deployment</strong>. Pilih type <em>Web app</em>. Atur "Who has access" menjadi <strong className="text-red-500 underline">Anyone</strong> (Penting! Jangan pilih yang lain). Klik Deploy.</li>
-                  <li>Copy Web App URL dan paste di kolom di bawah. <em>Catatan: Setiap melakukan perubahan kode, Anda wajib deploy ulang melalui Manage Deployments / New Deployment.</em></li>
-                </ol>
-              </div>
-
-              <div className="bg-slate-900 rounded-xl p-4 flex flex-col relative group">
-                <code className="text-[11px] text-green-400 font-mono whitespace-pre overflow-x-auto pb-2 h-48">
-{`const SHEET_NAME = "Logs";
-
-function doPost(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  if (!sheet) return ContentService.createTextOutput("Sheet Logs tidak ditemukan.");
-  
-  let data = {};
-  try { data = JSON.parse(e.postData.contents); } catch(err) {}
-
-  sheet.appendRow([
-    new Date().toISOString(),
-    data.method || "POST",
-    data.path || "/api/webhook",
-    JSON.stringify(data.payload || data)
-  ]);
-  
-  return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
-    .setMimeType(ContentService.MimeType.JSON);
-}
-
-function doGet(e) {
-  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
-  if (!sheet) return ContentService.createTextOutput("[]");
-  
-  const data = sheet.getDataRange().getValues();
-  const logs = data.reverse().slice(0, 50).map((row, index) => ({
-    id: "gs-" + index,
-    timestamp: row[0],
-    method: row[1],
-    path: row[2],
-    payload: row[3] ? JSON.parse(row[3]) : {}
-  }));
-  
-  return ContentService.createTextOutput(JSON.stringify(logs))
-    .setMimeType(ContentService.MimeType.JSON);
-}`}
-                </code>
-              </div>
-
-              <div className="space-y-2 mt-4">
-                <label className="text-xs font-medium text-slate-500">Google Apps Script Web App URL</label>
-                <div className="flex items-center space-x-2">
-                  <input
-                    type="url"
-                    value={sheetUrl}
-                    onChange={(e) => setSheetUrl(e.target.value)}
-                    placeholder="https://script.google.com/macros/s/..."
-                    className="flex-1 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
-                  />
-                  <button 
-                    onClick={handleSaveSheetUrl}
-                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-3 text-sm font-medium transition-colors flex items-center space-x-2 shadow-sm"
-                  >
-                    {isSavingSheet ? <RefreshCw className="w-4 h-4 animate-spin"/> : sheetSaved ? <CheckCircle2 className="w-4 h-4"/> : <span>Save</span>}
-                  </button>
-                </div>
-                <p className="text-[11px] text-slate-500">Saat di-deploy ke Cloudflare, pastikan set environment variable GOOGLE_SHEETS_URL.</p>
-              </div>
-
-            </div>
-          </div>
-          
+        {/* Sidebar Tabs */}
+        <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-slate-200 bg-white p-4 flex flex-col space-y-2 flex-shrink-0">
+          <div className="text-xs font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Menu Utama</div>
+          <button 
+            onClick={() => setActiveTab('inbox')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'inbox' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            <MessageSquare className="w-5 h-5" />
+            <span>Chat Inbox</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('webhook')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'webhook' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            <Terminal className="w-5 h-5" />
+            <span>Webhook Logs</span>
+          </button>
+          <button 
+            onClick={() => setActiveTab('setup')}
+            className={`w-full flex items-center space-x-3 px-4 py-3 rounded-xl transition-colors font-medium text-sm ${activeTab === 'setup' ? 'bg-indigo-50 text-indigo-700' : 'text-slate-600 hover:bg-slate-50'}`}
+          >
+            <Settings className="w-5 h-5" />
+            <span>Setup & Testing</span>
+          </button>
         </div>
 
-        {/* Right Column */}
-        <div className="md:col-span-7 flex flex-col gap-6">
-          
-          {/* Response Panel */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[400px] md:min-h-[400px]">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 rounded-t-2xl">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
-                <Code className="w-4 h-4" />
-                <span>JSON Response</span>
-              </h2>
-              {loading && (
-                <div className="flex items-center space-x-2">
-                  <div className="h-2 w-2 rounded-full bg-indigo-500 animate-pulse"></div>
-                  <span className="text-xs text-slate-500">Memproses request...</span>
-                </div>
-              )}
-            </div>
-            
-            <div className="flex-1 overflow-hidden relative rounded-b-2xl">
-              {response ? (
-                <pre className="p-6 text-sm font-mono text-slate-700 overflow-auto h-full w-full absolute inset-0 bg-slate-50/50">
-                  {response}
-                </pre>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 bg-slate-50/50">
-                  <Server className="w-8 h-8 opacity-20" />
-                  <p className="text-sm font-medium">Response akan tampil di sini</p>
-                </div>
-              )}
-            </div>
-          </div>
+        {/* Main Content Area */}
+        <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8 flex flex-col">
+           {activeTab === 'inbox' && (
+             <div className="h-full flex flex-col bg-[#efeae2] rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+               <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shadow-sm z-10 shrink-0">
+                 <h2 className="text-sm font-bold text-slate-700 flex items-center space-x-2">
+                   <MessageSquare className="w-5 h-5 text-emerald-600" />
+                   <span>WhatsApp Inbox</span>
+                 </h2>
+                 <div className="flex items-center space-x-2">
+                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                    <span className="text-xs text-slate-500 font-medium">Live sync</span>
+                 </div>
+               </div>
+               
+               {/* Background pattern */}
+               <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
 
-          {/* Webhook Logs Panel */}
-          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 rounded-t-2xl">
-              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
-                <Activity className="w-4 h-4" />
-                <span>Recent Webhooks</span>
-              </h2>
-              <div className="flex items-center space-x-2">
-                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                 <span className="text-xs text-slate-500">Listening...</span>
-              </div>
-            </div>
-            
-            <div className="flex-1 overflow-x-auto min-h-[200px]">
-              {webhookLogs.length > 0 ? (
-                <table className="w-full text-left border-collapse">
-                  <thead>
-                    <tr className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50">
-                      <th className="px-6 py-4">Status</th>
-                      <th className="px-6 py-4">Method</th>
-                      <th className="px-6 py-4">Time</th>
-                      <th className="px-6 py-4">Data Payload</th>
-                    </tr>
-                  </thead>
-                  <tbody className="divide-y divide-slate-100">
-                    {webhookLogs.map((log) => (
-                      <tr key={log.id} className="text-sm group hover:bg-slate-50/50 transition-colors">
-                        <td className="px-6 py-4">
-                           {log.id === 'cf-pages-notice' ? (
-                             <span className="text-amber-600 font-medium">NOTICE</span>
-                           ) : (
-                             <span className="text-slate-900 font-medium">200 OK</span>
-                           )}
-                        </td>
-                        <td className="px-6 py-4">
-                           <span className={`px-2 py-1 rounded-md font-bold text-[10px] ${log.id === 'cf-pages-notice' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
-                             {log.method}
-                           </span>
-                        </td>
-                        <td className="px-6 py-4">
-                          <div className="flex items-center space-x-1 text-slate-500 text-xs font-medium">
-                            <Clock className="w-3 h-3" />
-                            <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
+               <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
+                  {chatMessages.length > 0 ? (
+                    chatMessages.map((msg, idx) => {
+                      const isSameSenderAsPrevious = idx > 0 && chatMessages[idx - 1].senderNumber === msg.senderNumber;
+                      return (
+                        <div key={msg.id} className={`bg-white p-3 md:p-4 shadow-sm border border-slate-100 max-w-[85%] md:max-w-[65%] self-start flex flex-col relative ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}>
+                          {!isSameSenderAsPrevious && (
+                            <div className="flex items-baseline space-x-2 mb-1">
+                              <span className="font-bold text-emerald-600 text-[13px] md:text-sm">{msg.senderName}</span>
+                              <span className="text-[11px] text-slate-400 font-mono">+{msg.senderNumber}</span>
+                            </div>
+                          )}
+                          <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{msg.body}</p>
+                          <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
+                            <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                           </div>
-                        </td>
-                        <td className="px-6 py-4 font-mono text-slate-600 text-[11px] md:text-xs">
-                           <div className="max-w-xs md:max-w-md break-words whitespace-pre-wrap">
-                             {log.id === 'cf-pages-notice' ? log.payload.notice : JSON.stringify(log.payload)}
-                           </div>
-                        </td>
-                      </tr>
-                    ))}
-                  </tbody>
-                </table>
-              ) : (
-                <div className="h-full flex flex-col items-center justify-center p-12 text-slate-400 space-y-3">
-                  <Activity className="w-8 h-8 opacity-20" />
-                  <p className="text-sm font-medium">Belum ada webhook yang diterima</p>
-                  <p className="text-xs text-center max-w-xs">Kirim POST request ke <code className="text-indigo-500">/api/webhook</code> untuk melihat log di sini.</p>
-                </div>
-              )}
-            </div>
-          </div>
+                      </div>
+                      )
+                    })
+                  ) : (
+                    <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 m-auto bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/50">
+                      <MessageSquare className="w-10 h-10 opacity-30" />
+                      <p className="text-sm font-medium">Belum ada pesan WhatsApp yang masuk</p>
+                      <p className="text-xs text-center max-w-[250px] text-slate-400">Pastikan n8n mengirim webhook payload WhatsApp ke URL endpoint Anda.</p>
+                    </div>
+                  )}
+               </div>
+             </div>
+           )}
 
-          {/* Deployment Details */}
-          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
-            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Deployment Guide</h2>
-            <div className="space-y-4">
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-sm text-slate-500">Platform</span>
-                <span className="text-sm font-medium text-slate-900">Cloudflare Pages</span>
+           {activeTab === 'webhook' && (
+             <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col flex-1">
+              <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 rounded-t-2xl shrink-0">
+                <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
+                  <Activity className="w-4 h-4" />
+                  <span>Recent Webhooks Log</span>
+                </h2>
+                <div className="flex items-center space-x-2">
+                   <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                   <span className="text-xs text-slate-500">Listening...</span>
+                </div>
               </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-sm text-slate-500">Step 1</span>
-                <span className="text-sm font-medium text-slate-900 text-right">Export ke GitHub</span>
+              
+              <div className="flex-1 overflow-x-auto overflow-y-auto">
+                {webhookLogs.length > 0 ? (
+                  <table className="w-full text-left border-collapse">
+                    <thead className="sticky top-0 bg-slate-50/90 backdrop-blur-sm z-10 hidden md:table-header-group">
+                      <tr className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider">
+                        <th className="px-6 py-4 border-b border-slate-200">Status</th>
+                        <th className="px-6 py-4 border-b border-slate-200">Time</th>
+                        <th className="px-6 py-4 border-b border-slate-200">Data Payload</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-slate-100 flex-1">
+                      {webhookLogs.map((log) => (
+                        <tr key={log.id} className="text-sm group hover:bg-slate-50/50 transition-colors flex flex-col md:table-row">
+                          <td className="px-6 py-3 md:py-4 flex justify-between md:table-cell border-b border-slate-100 md:border-b-0">
+                             <div className="flex items-center space-x-2">
+                               {log.id === 'cf-pages-notice' ? (
+                                 <span className="text-amber-600 font-medium whitespace-nowrap">NOTICE</span>
+                               ) : (
+                                 <span className="text-slate-900 font-medium whitespace-nowrap">200 OK</span>
+                               )}
+                               <span className={`px-2 py-1 rounded-md font-bold text-[10px] ${log.id === 'cf-pages-notice' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                                 {log.method}
+                               </span>
+                             </div>
+                          </td>
+                          <td className="px-6 py-3 md:py-4 flex justify-between md:table-cell border-b border-slate-100 md:border-b-0">
+                            <div className="flex items-center space-x-1 text-slate-500 text-xs font-medium">
+                              <Clock className="w-3 h-3" />
+                              <span>{new Date(log.timestamp).toLocaleString()}</span>
+                            </div>
+                          </td>
+                          <td className="px-6 py-4 font-mono text-slate-600 text-[11px] md:text-xs">
+                             <div className="max-w-full break-words whitespace-pre-wrap overflow-x-auto bg-slate-900 text-green-400 p-3 rounded-xl max-h-[300px] overflow-y-auto scrollbar-thin">
+                               {log.id === 'cf-pages-notice' ? log.payload.notice : JSON.stringify(log.payload, null, 2)}
+                             </div>
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                ) : (
+                  <div className="h-full flex flex-col items-center justify-center p-12 text-slate-400 space-y-3">
+                    <Activity className="w-8 h-8 opacity-20" />
+                    <p className="text-sm font-medium">Belum ada webhook yang diterima</p>
+                    <p className="text-xs text-center max-w-xs">Tunggu request webhook dari n8n.</p>
+                  </div>
+                )}
               </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-sm text-slate-500">Step 2</span>
-                <span className="text-sm font-medium text-slate-900 text-right">Connect Git ke Cloudflare Pages</span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-sm text-slate-500">Environment Variables</span>
-                <span className="text-sm font-medium text-slate-900 text-right"><code className="bg-slate-50 border border-slate-100 rounded-md px-2 py-1 text-xs font-mono text-indigo-600 tracking-tighter">GOOGLE_SHEETS_URL</code></span>
-              </div>
-              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
-                <span className="text-sm text-slate-500">Build Command</span>
-                <code className="bg-slate-50 border border-slate-100 rounded-md px-2 py-1 text-xs font-mono text-indigo-600">npm run build</code>
-              </div>
-              <div className="flex justify-between items-center">
-                <span className="text-sm text-slate-500">Build Directory</span>
-                <code className="bg-slate-50 border border-slate-100 rounded-md px-2 py-1 text-xs font-mono text-indigo-600">dist</code>
-              </div>
-            </div>
-          </div>
-          
+             </div>
+           )}
+
+           {activeTab === 'setup' && (
+             <div className="grid grid-cols-1 md:grid-cols-2 gap-6 pb-8">
+               <div className="flex flex-col gap-6">
+                 {/* Google Sheet Setup */}
+                 <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                   <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center space-x-2">
+                     <Database className="w-4 h-4" />
+                     <span>Database (Google Sheets)</span>
+                   </h2>
+                   <div className="space-y-4">
+                     <p className="text-sm text-slate-500 leading-relaxed">
+                       Simpan log webhook gratis menggunakan Google Apps Script. 
+                     </p>
+                     
+                     <div className="space-y-2 mt-4">
+                       <label className="text-xs font-medium text-slate-500">Google Apps Script Web App URL</label>
+                       <div className="flex items-center space-x-2">
+                         <input
+                           type="url"
+                           value={sheetUrl}
+                           onChange={(e) => setSheetUrl(e.target.value)}
+                           placeholder="https://script.google.com/macros/s/..."
+                           className="flex-1 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
+                         />
+                         <button 
+                           onClick={handleSaveSheetUrl}
+                           className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-3 text-sm font-medium transition-colors flex items-center space-x-2 shadow-sm"
+                         >
+                           {isSavingSheet ? <RefreshCw className="w-4 h-4 animate-spin"/> : sheetSaved ? <CheckCircle2 className="w-4 h-4"/> : <span>Save</span>}
+                         </button>
+                       </div>
+                       <p className="text-[11px] text-slate-500 mt-2">Ubah script di Google Apps Script dan deploy ulang (Me, Anyone) jika ada perubahan.</p>
+                     </div>
+                   </div>
+                 </div>
+
+                 {/* Webhook Info */}
+                 <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                   <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Webhook Info</h2>
+                   <div className="space-y-4">
+                     <div>
+                       <label className="text-xs font-medium text-slate-500 block mb-2">Endpoint Webhook Anda</label>
+                       <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center justify-between">
+                         <code className="text-xs text-indigo-600 font-mono overflow-hidden truncate flex-1 select-all">
+                           {typeof window !== 'undefined' ? `${window.location.origin}/api/webhook` : 'Loading...'}
+                         </code>
+                         <button 
+                           onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/webhook`)}
+                           className="ml-4 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
+                         >
+                           Copy URL
+                         </button>
+                       </div>
+                     </div>
+                     <p className="text-xs text-slate-500">Masukkan URL ini ke node Webhook di n8n atau di setting provider WhatsApp Anda.</p>
+                   </div>
+                 </div>
+               </div>
+
+               <div className="flex flex-col gap-6">
+                 {/* Test API Panel */}
+                 <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+                   <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center justify-between">
+                     <span>Test Webhook Payload</span>
+                     {loading && <RefreshCw className="w-3 h-3 animate-spin"/>}
+                   </h2>
+                   
+                   <div className="space-y-4">
+                     <div className="space-y-2">
+                       <label className="text-xs font-medium text-slate-500">Kirim payload WhatsApp simulasi</label>
+                       <textarea
+                         value={postData}
+                         onChange={(e) => setPostData(e.target.value)}
+                         className="w-full h-40 p-4 font-mono text-[11px] md:text-xs bg-slate-900 border border-slate-800 text-green-400 rounded-xl focus:ring-2 focus:ring-indigo-500 outline-none shadow-inner"
+                         spellCheck="false"
+                       />
+                     </div>
+                     <button
+                       onClick={() => { setEndpoint('/api/webhook'); setMethod('POST'); handleTestAPI(); }}
+                       disabled={loading}
+                       className="w-full flex items-center justify-center space-x-2 py-3 bg-slate-900 hover:bg-slate-800 text-white rounded-xl text-sm font-medium transition-all shadow-sm"
+                     >
+                       <Send className="w-4 h-4" />
+                       <span>Kirim Simulasi Webhook</span>
+                     </button>
+                     
+                     {response && (
+                       <div className="mt-4 border-t border-slate-100 pt-4">
+                         <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Response</label>
+                         <pre className="p-4 text-[10px] md:text-[11px] font-mono text-slate-600 bg-slate-50 rounded-xl overflow-x-auto">
+                           {response}
+                         </pre>
+                       </div>
+                     )}
+                   </div>
+                 </div>
+               </div>
+             </div>
+           )}
         </div>
       </main>
     </div>
