@@ -139,6 +139,7 @@ export default function App() {
                        senderName,
                        senderNumber,
                        body: msg.text?.body || '',
+                       fromMe: !!msg.fromMe,
                        raw: log
                     });
                 }
@@ -264,6 +265,26 @@ export default function App() {
       
       if (response.ok) {
         setReplyText('');
+        
+        // Push duplicate to local webhook to show it and save to Gsheet
+        const senderName = contacts.find(c => c.senderNumber === activeContact)?.senderName || activeContact;
+        const fakeWebhookPayload = {
+           messaging_product: 'whatsapp',
+           contacts: [{ wa_id: activeContact, profile: { name: senderName } }],
+           messages: [{
+              fromMe: true,
+              id: 'sent-' + Date.now(),
+              timestamp: Math.floor(Date.now() / 1000).toString(),
+              type: 'text',
+              text: { body: replyText }
+           }]
+        };
+        fetch('/api/webhook', {
+           method: 'POST',
+           headers: { 'Content-Type': 'application/json', 'x-webhook-signature': 'internal-sent-message' },
+           body: JSON.stringify(fakeWebhookPayload)
+        }).catch(e => console.error("Failed to write to local log/sheet", e));
+
       } else {
         console.error("Failed to send message: HTTP", response.status);
       }
@@ -529,12 +550,14 @@ export default function App() {
                      </div>
                      <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
                         {activeMessages.map((msg, idx) => {
-                          const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber;
+                          const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber && activeMessages[idx - 1].fromMe === msg.fromMe;
+                          const isMe = msg.fromMe;
                           return (
-                            <div key={msg.id} className={`bg-white p-3 shadow-sm border border-slate-100 max-w-[85%] md:max-w-[70%] self-start flex flex-col relative ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}>
+                            <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${isMe ? `bg-[#dcf8c6] border-[#dcf8c6] self-end ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tr-sm mt-4'}` : `bg-white border-slate-100 self-start ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}`}>
                               <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
-                              <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
+                              <div className={`text-[10px] text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px] ${isMe ? 'text-emerald-700/70' : 'text-slate-400'}`}>
                                 <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                {isMe && <CheckCircle2 className="w-3 h-3 ml-1 opacity-70" />}
                               </div>
                             </div>
                           )
