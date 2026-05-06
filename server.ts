@@ -31,13 +31,23 @@ async function startServer() {
 
   // In-memory log penyimpanan sementara untuk webhook di mode lokal
   const webhookLogs: any[] = [];
+  let GOOGLE_SHEETS_URL = "";
+
+  app.post("/api/settings/google-sheets", (req, res) => {
+    GOOGLE_SHEETS_URL = req.body.url;
+    res.json({ success: true });
+  });
+
+  app.get("/api/settings/google-sheets", (req, res) => {
+    res.json({ url: GOOGLE_SHEETS_URL });
+  });
 
   // Simulasi Endpoint Webhook
   app.post("/api/webhook", async (req, res) => {
     const signature = req.headers["x-webhook-signature"] || req.headers["stripe-signature"] || "none";
     const body = req.body;
 
-    // Simpan ke log
+    // Simpan ke log lokal memory
     webhookLogs.unshift({
       id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
       timestamp: new Date().toISOString(),
@@ -47,9 +57,26 @@ async function startServer() {
       headers: req.headers
     });
 
-    // Batasi log maksimal 50
     if (webhookLogs.length > 50) {
       webhookLogs.pop();
+    }
+
+    let sheetStatus = "Local memory log only";
+
+    if (GOOGLE_SHEETS_URL) {
+       try {
+         await fetch(GOOGLE_SHEETS_URL, {
+            method: "POST",
+            body: JSON.stringify({
+              method: "POST",
+              path: "/api/webhook",
+              payload: body
+            })
+         });
+         sheetStatus = "Data forwarded to Google Sheets";
+       } catch (e: any) {
+         sheetStatus = "Failed saving to Google Sheets: " + e.message;
+       }
     }
 
     return res.status(200).json({
@@ -57,11 +84,21 @@ async function startServer() {
       message: "Webhook payload received safely (Local Express)",
       signature_received: !!req.headers["x-webhook-signature"],
       received_payload: body,
+      sheet_status: sheetStatus
     });
   });
 
   // Endpoint untuk mengambil log webhook dari client
-  app.get("/api/webhook/logs", (req, res) => {
+  app.get("/api/webhook/logs", async (req, res) => {
+    if (GOOGLE_SHEETS_URL) {
+      try {
+        const resp = await fetch(GOOGLE_SHEETS_URL);
+        const data = await resp.json();
+        return res.status(200).json(data);
+      } catch(e) {
+        // Fallback or ignore
+      }
+    }
     return res.status(200).json(webhookLogs);
   });
 

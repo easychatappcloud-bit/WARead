@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock } from 'lucide-react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2 } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
@@ -13,6 +13,19 @@ export default function App() {
   const [method, setMethod] = useState<'GET' | 'POST'>('GET');
   const [postData, setPostData] = useState<string>('{\n  "nama": "AI Developer"\n}');
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+  const [sheetUrl, setSheetUrl] = useState<string>('');
+  const [isSavingSheet, setIsSavingSheet] = useState<boolean>(false);
+  const [sheetSaved, setSheetSaved] = useState<boolean>(false);
+
+  useEffect(() => {
+    // Fetch initial settings for sheet url
+    fetch('/api/settings/google-sheets')
+      .then(res => res.json())
+      .then(data => {
+        if (data.url) setSheetUrl(data.url);
+      })
+      .catch(() => {});
+  }, []);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -35,6 +48,24 @@ export default function App() {
 
     return () => clearTimeout(timeoutId);
   }, []);
+
+  const handleSaveSheetUrl = async () => {
+    setIsSavingSheet(true);
+    setSheetSaved(false);
+    try {
+      await fetch('/api/settings/google-sheets', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ url: sheetUrl }),
+      });
+      setSheetSaved(true);
+      setTimeout(() => setSheetSaved(false), 3000);
+    } catch (error) {
+      console.error("Gagal save url", error);
+    } finally {
+      setIsSavingSheet(false);
+    }
+  };
 
   const handleTestAPI = async () => {
     setLoading(true);
@@ -241,6 +272,93 @@ export default function App() {
               </button>
             </div>
           </div>
+
+          {/* Setup Gratis Database (Google Sheet) */}
+          <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
+            <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4 flex items-center space-x-2">
+               <Database className="w-4 h-4" />
+               <span>Database Gratis (Google Sheets API)</span>
+            </h2>
+            <div className="space-y-4">
+              <p className="text-sm text-slate-500 leading-relaxed">
+                Di Cloudflare Pages, Worker bersifat stateless. Supaya data n8n tersimpan dengan gratis selamanya tanpa butuh database berbayar, gunakan Google Apps Script. 
+              </p>
+              
+              <div className="text-sm bg-emerald-50 border border-emerald-100 p-4 rounded-xl text-emerald-800 space-y-2">
+                <p className="font-semibold text-emerald-900 mb-2">Cara Setup:</p>
+                <ol className="list-decimal list-inside space-y-2">
+                  <li>Buat Spreadsheet Baru di <a href="https://sheets.new" target="_blank" rel="noreferrer" className="underline font-semibold">sheets.new</a></li>
+                  <li>Rename nama sheet yang ada di paling bawah kiri menjadi <strong>Logs</strong>.</li>
+                  <li>Di menu atas, pilih <strong>Extensions</strong> {'->'} <strong>Apps Script</strong>.</li>
+                  <li>Hapus semua kode, lalu paste script di bawah ini.</li>
+                  <li>Klik <strong>Deploy</strong> {'->'} <strong>New deployment</strong>. Pilih type <em>Web app</em>. Atur "Who has access" menjadi <strong>Anyone</strong>. Klik Deploy.</li>
+                  <li>Copy Web App URL dan paste di kolom di bawah.</li>
+                </ol>
+              </div>
+
+              <div className="bg-slate-900 rounded-xl p-4 flex flex-col relative group">
+                <code className="text-[11px] text-green-400 font-mono whitespace-pre overflow-x-auto pb-2 h-48">
+{`const SHEET_NAME = "Logs";
+
+function doPost(e) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) return ContentService.createTextOutput("Sheet Logs tidak ditemukan.");
+  
+  let data = {};
+  try { data = JSON.parse(e.postData.contents); } catch(err) {}
+
+  sheet.appendRow([
+    new Date().toISOString(),
+    data.method || "POST",
+    data.path || "/api/webhook",
+    JSON.stringify(data.payload || data)
+  ]);
+  
+  return ContentService.createTextOutput(JSON.stringify({ status: "success" }))
+    .setMimeType(ContentService.MimeType.JSON);
+}
+
+function doGet(e) {
+  const sheet = SpreadsheetApp.getActiveSpreadsheet().getSheetByName(SHEET_NAME);
+  if (!sheet) return ContentService.createTextOutput("[]");
+  
+  const data = sheet.getDataRange().getValues();
+  const logs = data.reverse().slice(0, 50).map((row, index) => ({
+    id: "gs-" + index,
+    timestamp: row[0],
+    method: row[1],
+    path: row[2],
+    payload: row[3] ? JSON.parse(row[3]) : {}
+  }));
+  
+  return ContentService.createTextOutput(JSON.stringify(logs))
+    .setMimeType(ContentService.MimeType.JSON);
+}`}
+                </code>
+              </div>
+
+              <div className="space-y-2 mt-4">
+                <label className="text-xs font-medium text-slate-500">Google Apps Script Web App URL</label>
+                <div className="flex items-center space-x-2">
+                  <input
+                    type="url"
+                    value={sheetUrl}
+                    onChange={(e) => setSheetUrl(e.target.value)}
+                    placeholder="https://script.google.com/macros/s/..."
+                    className="flex-1 bg-slate-50 border border-slate-200 text-slate-700 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none transition-colors"
+                  />
+                  <button 
+                    onClick={handleSaveSheetUrl}
+                    className="bg-indigo-600 hover:bg-indigo-700 text-white rounded-xl px-4 py-3 text-sm font-medium transition-colors flex items-center space-x-2 shadow-sm"
+                  >
+                    {isSavingSheet ? <RefreshCw className="w-4 h-4 animate-spin"/> : sheetSaved ? <CheckCircle2 className="w-4 h-4"/> : <span>Save</span>}
+                  </button>
+                </div>
+                <p className="text-[11px] text-slate-500">Saat di-deploy ke Cloudflare, pastikan set environment variable GOOGLE_SHEETS_URL.</p>
+              </div>
+
+            </div>
+          </div>
           
         </div>
 
@@ -355,6 +473,10 @@ export default function App() {
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <span className="text-sm text-slate-500">Step 2</span>
                 <span className="text-sm font-medium text-slate-900 text-right">Connect Git ke Cloudflare Pages</span>
+              </div>
+              <div className="flex justify-between items-center pb-3 border-b border-slate-100">
+                <span className="text-sm text-slate-500">Environment Variables</span>
+                <span className="text-sm font-medium text-slate-900 text-right"><code className="bg-slate-50 border border-slate-100 rounded-md px-2 py-1 text-xs font-mono text-indigo-600 tracking-tighter">GOOGLE_SHEETS_URL</code></span>
               </div>
               <div className="flex justify-between items-center pb-3 border-b border-slate-100">
                 <span className="text-sm text-slate-500">Build Command</span>
