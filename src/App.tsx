@@ -222,9 +222,16 @@ export default function App() {
      return chatMessages.filter(msg => msg.senderNumber === activeContact);
   }, [chatMessages, activeContact]);
 
+  const prevActiveContact = useRef(activeContact);
+  const prevMessageCount = useRef(activeMessages.length);
+
   useEffect(() => {
-    scrollToBottom();
-  }, [activeMessages, activeContact]);
+    if (activeContact !== prevActiveContact.current || activeMessages.length !== prevMessageCount.current) {
+      scrollToBottom();
+      prevActiveContact.current = activeContact;
+      prevMessageCount.current = activeMessages.length;
+    }
+  }, [activeMessages.length, activeContact]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
