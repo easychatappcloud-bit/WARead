@@ -232,7 +232,7 @@ export default function App() {
   };
 
   return (
-    <div className="min-h-screen bg-slate-50 flex flex-col font-sans">
+    <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
       {/* Header Navigation */}
       <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-8 flex-shrink-0">
         <div className="flex items-center space-x-4">
@@ -282,9 +282,9 @@ export default function App() {
         </div>
 
         {/* Main Content Area */}
-        <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8 flex flex-col">
+        <div className="flex-1 min-w-0 bg-slate-50 overflow-y-auto p-4 md:p-8 flex flex-col">
            {activeTab === 'inbox' && (
-             <div className="h-full flex bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+             <div className="flex-1 min-h-0 flex bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
                
                {/* Contacts Sidebar */}
                <div className="w-1/3 md:w-80 border-r border-slate-200 flex flex-col bg-slate-50 z-20 shrink-0">
