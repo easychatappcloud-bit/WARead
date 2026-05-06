@@ -45,6 +45,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [replyText, setReplyText] = useState<string>('');
   const [sendingReply, setSendingReply] = useState<boolean>(false);
+  const [sendError, setSendError] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -249,6 +250,7 @@ export default function App() {
     if (!replyText.trim() || !activeContact) return;
 
     setSendingReply(true);
+    setSendError(null);
     try {
       const payload = {
         to: activeContact,
@@ -286,11 +288,15 @@ export default function App() {
         }).catch(e => console.error("Failed to write to local log/sheet", e));
 
       } else {
-        console.error("Failed to send message: HTTP", response.status);
+        const errorData = await response.json();
+        const errorMessage = errorData.error || response.statusText || 'Gagal mengirim pesan';
+        console.error("Failed to send message:", errorMessage);
+        setSendError(`Error n8n: ${response.status === 404 ? 'Webhook tidak aktif. Klik "Execute workflow" di n8n untuk webhook dengan URL "-test" atau ganti URL ke production webhook.' : errorMessage}`);
       }
       
-    } catch (error) {
+    } catch (error: any) {
        console.error("Failed to send message", error);
+       setSendError(`Koneksi error: ${error.message}`);
     } finally {
       setSendingReply(false);
     }
@@ -564,14 +570,14 @@ export default function App() {
                         })}
                         <div ref={messagesEndRef} />
                      </div>
-                     <div className="p-3 bg-white border-t border-slate-200 z-10 shrink-0">
+                     <div className="p-3 bg-white border-t border-slate-200 z-10 shrink-0 flex flex-col">
                         <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
                            <textarea
                              className="flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none scrollbar-thin overflow-y-auto"
                              placeholder="Ketik balasan..."
                              rows={1}
                              value={replyText}
-                             onChange={(e) => setReplyText(e.target.value)}
+                             onChange={(e) => { setReplyText(e.target.value); setSendError(null); }}
                              onKeyDown={(e) => {
                                if (e.key === 'Enter' && !e.shiftKey) {
                                  e.preventDefault();
@@ -591,6 +597,11 @@ export default function App() {
                              )}
                            </button>
                         </form>
+                        {sendError && (
+                          <div className="mt-2 text-xs text-red-500 bg-red-50 p-2 rounded-lg border border-red-100 flex items-start">
+                            <span className="font-semibold mr-1">Gagal:</span> {sendError}
+                          </div>
+                        )}
                      </div>
                    </>
                  ) : (
