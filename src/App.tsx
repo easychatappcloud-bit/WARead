@@ -40,6 +40,7 @@ export default function App() {
   const [sheetSaved, setSheetSaved] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'webhook' | 'setup'>('inbox');
   const [activeContact, setActiveContact] = useState<string | null>(null);
+  const [readAt, setReadAt] = useState<Record<string, number>>({});
 
   useEffect(() => {
     // Fetch initial settings for sheet url
@@ -97,20 +98,42 @@ export default function App() {
   }, [webhookLogs]);
 
   const contacts = useMemo(() => {
-    const map = new Map<string, { senderName: string, senderNumber: string, lastMessage: string, lastTimestamp: Date }>();
+    const map = new Map<string, { senderName: string, senderNumber: string, lastMessage: string, lastTimestamp: Date, unreadCount: number }>();
     chatMessages.forEach(msg => {
        const existing = map.get(msg.senderNumber);
-       if (!existing || msg.timestamp > existing.lastTimestamp) {
+       
+       let isUnread = 0;
+       if (msg.senderNumber !== activeContact) {
+           const lastRead = readAt[msg.senderNumber] || 0;
+           if (msg.timestamp.getTime() > lastRead) {
+               isUnread = 1;
+           }
+       }
+
+       if (!existing) {
           map.set(msg.senderNumber, {
              senderName: msg.senderName,
              senderNumber: msg.senderNumber,
              lastMessage: msg.body,
-             lastTimestamp: msg.timestamp
+             lastTimestamp: msg.timestamp,
+             unreadCount: isUnread
           });
+       } else {
+          existing.unreadCount += isUnread;
+          if (msg.timestamp > existing.lastTimestamp) {
+             existing.lastMessage = msg.body;
+             existing.lastTimestamp = msg.timestamp;
+          }
        }
     });
     return Array.from(map.values()).sort((a, b) => b.lastTimestamp.getTime() - a.lastTimestamp.getTime());
-  }, [chatMessages]);
+  }, [chatMessages, activeContact, readAt]);
+
+  useEffect(() => {
+     if (activeContact) {
+        setReadAt(prev => ({ ...prev, [activeContact]: Date.now() }));
+     }
+  }, [activeContact, chatMessages]);
 
   useEffect(() => {
      if (contacts.length > 0 && !activeContact) {
@@ -289,9 +312,18 @@ export default function App() {
                             <div className="flex-1 min-w-0">
                                <div className="flex justify-between items-baseline mb-1">
                                   <h3 className="text-sm font-bold text-slate-800 truncate pr-2">{contact.senderName}</h3>
-                                  <span className="text-[10px] text-slate-500 flex-shrink-0">{contact.lastTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                  <span className={`text-[10px] flex-shrink-0 ${contact.unreadCount > 0 ? 'text-emerald-500 font-bold' : 'text-slate-500'}`}>
+                                    {contact.lastTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}
+                                  </span>
                                </div>
-                               <p className="text-[13px] text-slate-500 truncate">{contact.lastMessage}</p>
+                               <div className="flex justify-between items-start">
+                                 <p className="text-[13px] text-slate-500 truncate flex-1 pr-2">{contact.lastMessage}</p>
+                                 {contact.unreadCount > 0 && (
+                                   <div className="bg-emerald-500 text-white text-[10px] font-bold rounded-full h-5 min-w-[20px] px-1.5 flex items-center justify-center flex-shrink-0">
+                                     {contact.unreadCount}
+                                   </div>
+                                 )}
+                               </div>
                             </div>
                          </div>
                       ))
