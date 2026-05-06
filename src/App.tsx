@@ -42,7 +42,7 @@ export default function App() {
   const [activeContact, setActiveContact] = useState<string | null>(null);
   const [searchQuery, setSearchQuery] = useState<string>('');
   const [readAt, setReadAt] = useState<Record<string, number>>({});
-  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(true);
+  const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
