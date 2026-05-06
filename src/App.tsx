@@ -39,6 +39,7 @@ export default function App() {
   const [isSavingSheet, setIsSavingSheet] = useState<boolean>(false);
   const [sheetSaved, setSheetSaved] = useState<boolean>(false);
   const [activeTab, setActiveTab] = useState<'inbox' | 'webhook' | 'setup'>('inbox');
+  const [activeContact, setActiveContact] = useState<string | null>(null);
 
   useEffect(() => {
     // Fetch initial settings for sheet url
@@ -91,10 +92,36 @@ export default function App() {
       });
     });
     
-    // Sort descending by default? No, usually chat is ascending (oldest to newest) inside the window,
-    // assuming it's a feed. But since we want the latest at the bottom, we should sort ascending.
+    // Sort ascending (oldest to newest)
     return messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
   }, [webhookLogs]);
+
+  const contacts = useMemo(() => {
+    const map = new Map<string, { senderName: string, senderNumber: string, lastMessage: string, lastTimestamp: Date }>();
+    chatMessages.forEach(msg => {
+       const existing = map.get(msg.senderNumber);
+       if (!existing || msg.timestamp > existing.lastTimestamp) {
+          map.set(msg.senderNumber, {
+             senderName: msg.senderName,
+             senderNumber: msg.senderNumber,
+             lastMessage: msg.body,
+             lastTimestamp: msg.timestamp
+          });
+       }
+    });
+    return Array.from(map.values()).sort((a, b) => b.lastTimestamp.getTime() - a.lastTimestamp.getTime());
+  }, [chatMessages]);
+
+  useEffect(() => {
+     if (contacts.length > 0 && !activeContact) {
+        setActiveContact(contacts[0].senderNumber);
+     }
+  }, [contacts, activeContact]);
+
+  const activeMessages = useMemo(() => {
+     if (!activeContact) return [];
+     return chatMessages.filter(msg => msg.senderNumber === activeContact);
+  }, [chatMessages, activeContact]);
 
   useEffect(() => {
     let timeoutId: NodeJS.Timeout;
@@ -234,47 +261,83 @@ export default function App() {
         {/* Main Content Area */}
         <div className="flex-1 bg-slate-50 overflow-y-auto p-4 md:p-8 flex flex-col">
            {activeTab === 'inbox' && (
-             <div className="h-full flex flex-col bg-[#efeae2] rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
-               <div className="p-4 border-b border-slate-200 bg-slate-50 flex items-center justify-between shadow-sm z-10 shrink-0">
-                 <h2 className="text-sm font-bold text-slate-700 flex items-center space-x-2">
-                   <MessageSquare className="w-5 h-5 text-emerald-600" />
-                   <span>WhatsApp Inbox</span>
-                 </h2>
-                 <div className="flex items-center space-x-2">
-                    <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
-                    <span className="text-xs text-slate-500 font-medium">Live sync</span>
+             <div className="h-full flex bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+               
+               {/* Contacts Sidebar */}
+               <div className="w-1/3 md:w-80 border-r border-slate-200 flex flex-col bg-slate-50 z-20 shrink-0">
+                 <div className="p-4 border-b border-slate-200 bg-slate-100 flex items-center justify-between shadow-sm shrink-0">
+                   <h2 className="text-sm font-bold text-slate-700 flex items-center space-x-2">
+                     <MessageSquare className="w-5 h-5 text-emerald-600" />
+                     <span>Chats</span>
+                   </h2>
+                   <div className="flex items-center space-x-2">
+                      <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                      <span className="text-[10px] text-emerald-600 font-bold uppercase tracking-wider">Live</span>
+                   </div>
+                 </div>
+                 <div className="flex-1 overflow-y-auto divide-y divide-slate-100">
+                    {contacts.length > 0 ? (
+                      contacts.map(contact => (
+                         <div 
+                           key={contact.senderNumber} 
+                           onClick={() => setActiveContact(contact.senderNumber)}
+                           className={`p-4 cursor-pointer hover:bg-slate-100 transition-colors flex items-start space-x-3 ${activeContact === contact.senderNumber ? 'bg-slate-200/60' : 'bg-transparent'}`}
+                         >
+                            <div className="w-12 h-12 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold flex-shrink-0 text-lg uppercase shadow-sm">
+                               {contact.senderName ? contact.senderName.charAt(0) : '#'}
+                            </div>
+                            <div className="flex-1 min-w-0">
+                               <div className="flex justify-between items-baseline mb-1">
+                                  <h3 className="text-sm font-bold text-slate-800 truncate pr-2">{contact.senderName}</h3>
+                                  <span className="text-[10px] text-slate-500 flex-shrink-0">{contact.lastTimestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                               </div>
+                               <p className="text-[13px] text-slate-500 truncate">{contact.lastMessage}</p>
+                            </div>
+                         </div>
+                      ))
+                    ) : (
+                      <div className="p-6 text-center text-slate-400 text-sm">
+                         Belum ada chat masuk
+                      </div>
+                    )}
                  </div>
                </div>
-               
-               {/* Background pattern */}
-               <div className="absolute inset-0 opacity-[0.06] pointer-events-none" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
 
-               <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
-                  {chatMessages.length > 0 ? (
-                    chatMessages.map((msg, idx) => {
-                      const isSameSenderAsPrevious = idx > 0 && chatMessages[idx - 1].senderNumber === msg.senderNumber;
-                      return (
-                        <div key={msg.id} className={`bg-white p-3 md:p-4 shadow-sm border border-slate-100 max-w-[85%] md:max-w-[65%] self-start flex flex-col relative ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}>
-                          {!isSameSenderAsPrevious && (
-                            <div className="flex items-baseline space-x-2 mb-1">
-                              <span className="font-bold text-emerald-600 text-[13px] md:text-sm">{msg.senderName}</span>
-                              <span className="text-[11px] text-slate-400 font-mono">+{msg.senderNumber}</span>
+               {/* Chat Panel */}
+               <div className="flex-1 flex flex-col bg-[#efeae2] relative h-full">
+                 <div className="absolute inset-0 opacity-[0.06] pointer-events-none z-0" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
+                 
+                 {activeContact ? (
+                   <>
+                     <div className="p-4 border-b border-slate-200 bg-slate-100 flex items-center shadow-sm z-10 shrink-0">
+                        <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold mr-3 shadow-sm">
+                           {contacts.find(c => c.senderNumber === activeContact)?.senderName?.charAt(0) || '#'}
+                        </div>
+                        <div>
+                           <h2 className="text-sm font-bold text-slate-800">{contacts.find(c => c.senderNumber === activeContact)?.senderName}</h2>
+                           <p className="text-[11px] font-mono text-slate-500">+{activeContact}</p>
+                        </div>
+                     </div>
+                     <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
+                        {activeMessages.map((msg, idx) => {
+                          const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber;
+                          return (
+                            <div key={msg.id} className={`bg-white p-3 shadow-sm border border-slate-100 max-w-[85%] md:max-w-[70%] self-start flex flex-col relative ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}>
+                              <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{msg.body}</p>
+                              <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
+                                <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                              </div>
                             </div>
-                          )}
-                          <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{msg.body}</p>
-                          <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
-                            <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                          </div>
-                      </div>
-                      )
-                    })
-                  ) : (
-                    <div className="h-full flex flex-col items-center justify-center text-slate-500 space-y-3 m-auto bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/50">
+                          )
+                        })}
+                     </div>
+                   </>
+                 ) : (
+                    <div className="flex-1 flex flex-col items-center justify-center text-slate-500 space-y-3 m-auto bg-white/50 backdrop-blur-sm p-6 rounded-2xl border border-white/50 z-10 relative h-[fit-content] max-h-48 mt-[20%]">
                       <MessageSquare className="w-10 h-10 opacity-30" />
-                      <p className="text-sm font-medium">Belum ada pesan WhatsApp yang masuk</p>
-                      <p className="text-xs text-center max-w-[250px] text-slate-400">Pastikan n8n mengirim webhook payload WhatsApp ke URL endpoint Anda.</p>
+                      <p className="text-sm font-medium">Buka chat untuk melihat pesan</p>
                     </div>
-                  )}
+                 )}
                </div>
              </div>
            )}
