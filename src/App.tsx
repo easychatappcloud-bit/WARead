@@ -3,8 +3,8 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import { useState } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw } from 'lucide-react';
+import { useState, useEffect } from 'react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
@@ -12,6 +12,29 @@ export default function App() {
   const [endpoint, setEndpoint] = useState<string>('/api/hello');
   const [method, setMethod] = useState<'GET' | 'POST'>('GET');
   const [postData, setPostData] = useState<string>('{\n  "nama": "AI Developer"\n}');
+  const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+
+  useEffect(() => {
+    let timeoutId: NodeJS.Timeout;
+
+    const fetchLogs = async () => {
+      try {
+        const res = await fetch('/api/webhook/logs');
+        if (res.ok) {
+          const data = await res.json();
+          setWebhookLogs(data);
+        }
+      } catch (err) {
+        console.error('Failed to fetch webhook logs:', err);
+      } finally {
+        timeoutId = setTimeout(fetchLogs, 2000);
+      }
+    };
+
+    fetchLogs();
+
+    return () => clearTimeout(timeoutId);
+  }, []);
 
   const handleTestAPI = async () => {
     setLoading(true);
@@ -163,7 +186,7 @@ export default function App() {
           
           {/* Response Panel */}
           <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col h-[400px] md:min-h-[400px]">
-            <div className="p-6 border-b border-slate-100 flex items-center justify-between">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 rounded-t-2xl">
               <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
                 <Code className="w-4 h-4" />
                 <span>JSON Response</span>
@@ -185,6 +208,64 @@ export default function App() {
                 <div className="h-full flex flex-col items-center justify-center text-slate-400 space-y-3 bg-slate-50/50">
                   <Server className="w-8 h-8 opacity-20" />
                   <p className="text-sm font-medium">Response akan tampil di sini</p>
+                </div>
+              )}
+            </div>
+          </div>
+
+          {/* Webhook Logs Panel */}
+          <div className="bg-white rounded-2xl border border-slate-200 shadow-sm flex flex-col">
+            <div className="p-6 border-b border-slate-100 flex items-center justify-between bg-slate-50/30 rounded-t-2xl">
+              <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest flex items-center space-x-2">
+                <Activity className="w-4 h-4" />
+                <span>Recent Webhooks</span>
+              </h2>
+              <div className="flex items-center space-x-2">
+                 <div className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse"></div>
+                 <span className="text-xs text-slate-500">Listening...</span>
+              </div>
+            </div>
+            
+            <div className="flex-1 overflow-x-auto min-h-[200px]">
+              {webhookLogs.length > 0 ? (
+                <table className="w-full text-left border-collapse">
+                  <thead>
+                    <tr className="text-[11px] font-semibold text-slate-400 uppercase tracking-wider bg-slate-50/50">
+                      <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4">Method</th>
+                      <th className="px-6 py-4">Time</th>
+                      <th className="px-6 py-4">Data Payload</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100">
+                    {webhookLogs.map((log) => (
+                      <tr key={log.id} className="text-sm group hover:bg-slate-50/50 transition-colors">
+                        <td className="px-6 py-4">
+                           <span className="text-slate-900 font-medium">200 OK</span>
+                        </td>
+                        <td className="px-6 py-4">
+                           <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md font-bold text-[10px]">{log.method}</span>
+                        </td>
+                        <td className="px-6 py-4">
+                          <div className="flex items-center space-x-1 text-slate-500 text-xs font-medium">
+                            <Clock className="w-3 h-3" />
+                            <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
+                          </div>
+                        </td>
+                        <td className="px-6 py-4 font-mono text-slate-600 text-xs">
+                           <div className="max-w-xs md:max-w-md truncate">
+                             {JSON.stringify(log.payload)}
+                           </div>
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              ) : (
+                <div className="h-full flex flex-col items-center justify-center p-12 text-slate-400 space-y-3">
+                  <Activity className="w-8 h-8 opacity-20" />
+                  <p className="text-sm font-medium">Belum ada webhook yang diterima</p>
+                  <p className="text-xs text-center max-w-xs">Kirim POST request ke <code className="text-indigo-500">/api/webhook</code> untuk melihat log di sini.</p>
                 </div>
               )}
             </div>

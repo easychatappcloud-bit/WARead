@@ -29,15 +29,40 @@ async function startServer() {
     });
   });
 
+  // In-memory log penyimpanan sementara untuk webhook di mode lokal
+  const webhookLogs: any[] = [];
+
   // Simulasi Endpoint Webhook
   app.post("/api/webhook", async (req, res) => {
-    const signature = req.headers["x-webhook-signature"];
+    const signature = req.headers["x-webhook-signature"] || req.headers["stripe-signature"] || "none";
+    const body = req.body;
+
+    // Simpan ke log
+    webhookLogs.unshift({
+      id: Date.now().toString(36) + Math.random().toString(36).substring(2, 7),
+      timestamp: new Date().toISOString(),
+      method: "POST",
+      path: "/api/webhook",
+      payload: body,
+      headers: req.headers
+    });
+
+    // Batasi log maksimal 50
+    if (webhookLogs.length > 50) {
+      webhookLogs.pop();
+    }
+
     return res.status(200).json({
       status: "success",
       message: "Webhook payload received safely (Local Express)",
-      signature_received: !!signature,
-      received_payload: req.body,
+      signature_received: !!req.headers["x-webhook-signature"],
+      received_payload: body,
     });
+  });
+
+  // Endpoint untuk mengambil log webhook dari client
+  app.get("/api/webhook/logs", (req, res) => {
+    return res.status(200).json(webhookLogs);
   });
 
   // ==================
