@@ -39,21 +39,41 @@ export default function App() {
   const handleTestAPI = async () => {
     setLoading(true);
     try {
+      const isPost = (endpoint === '/api/webhook' ? 'POST' : method) === 'POST';
+      let parsedBody;
+      
+      if (isPost) {
+        try {
+          parsedBody = JSON.parse(postData);
+        } catch (e: any) {
+          setResponse(JSON.stringify({ error: "Format JSON pada payload tidak valid: " + e.message }, null, 2));
+          setLoading(false);
+          return;
+        }
+      }
+
       const options: RequestInit = {
-        method: endpoint === '/api/webhook' ? 'POST' : method,
+        method: isPost ? 'POST' : 'GET',
         headers: {
           'Content-Type': 'application/json',
           ...(endpoint === '/api/webhook' && { 'x-webhook-signature': 'test-signature-123' })
         },
       };
 
-      if (options.method === 'POST') {
-        options.body = postData;
+      if (isPost) {
+        options.body = JSON.stringify(parsedBody);
       }
 
       const res = await fetch(endpoint, options);
-      const data = await res.json();
-      setResponse(JSON.stringify(data, null, 2));
+      const contentType = res.headers.get("content-type");
+      
+      if (contentType && contentType.includes("application/json")) {
+        const data = await res.json();
+        setResponse(JSON.stringify(data, null, 2));
+      } else {
+        const text = await res.text();
+        setResponse(text);
+      }
     } catch (error: any) {
       setResponse(JSON.stringify({ error: error.message }, null, 2));
     } finally {
@@ -92,9 +112,52 @@ export default function App() {
           <div className="bg-white rounded-2xl border border-slate-200 p-6 shadow-sm">
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">About Template</h2>
             <h3 className="text-xl font-bold text-slate-900 mb-2 tracking-tight">API Endpoint Generator</h3>
-            <p className="text-sm text-slate-500 leading-relaxed">
+            <p className="text-sm text-slate-500 leading-relaxed mb-4">
               Aplikasi ini dirancang sebagai contoh endpoint API. Di mode preview ini, ia menggunakan Express. Saat di-deploy ke Cloudflare Pages, folder <code className="text-indigo-600 font-mono text-xs bg-slate-50 border border-slate-100 px-1.5 py-0.5 rounded">functions/</code> akan otomatis berjalan sebagai Serverless Functions.
             </p>
+            <div className="mt-4 space-y-4">
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">Live Webhook URL Anda</label>
+                <div className="bg-slate-50 border border-slate-100 rounded-xl p-3 flex items-center justify-between">
+                  <code className="text-xs text-indigo-600 font-mono overflow-hidden truncate flex-1 select-all">
+                    {typeof window !== 'undefined' ? `${window.location.origin}/api/webhook` : 'Loading...'}
+                  </code>
+                  <button 
+                    onClick={() => navigator.clipboard.writeText(`${window.location.origin}/api/webhook`)}
+                    className="ml-4 px-3 py-1.5 bg-indigo-50 text-indigo-600 hover:bg-indigo-100 rounded-lg text-xs font-semibold transition-colors whitespace-nowrap"
+                  >
+                    Copy URL
+                  </button>
+                </div>
+              </div>
+              
+              <div>
+                <label className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-2 block">cURL untuk n8n (Import cURL)</label>
+                <div className="bg-slate-900 rounded-xl p-4 flex flex-col relative group">
+                  <code className="text-xs text-green-400 font-mono whitespace-pre overflow-x-auto pb-2">
+{`curl -X POST ${typeof window !== 'undefined' ? window.location.origin : 'URL'}/api/webhook \\
+-H "Content-Type: application/json" \\
+-H "x-webhook-signature: test-dari-n8n" \\
+-d '{
+  "event": "test_webhook",
+  "data": {
+    "message": "Hello from n8n!",
+    "status": "success"
+  }
+}'`}
+                  </code>
+                  <button 
+                    onClick={() => {
+                      const curl = `curl -X POST ${window.location.origin}/api/webhook \\\n-H "Content-Type: application/json" \\\n-H "x-webhook-signature: test-dari-n8n" \\\n-d '{\n  "event": "test_webhook",\n  "data": {\n    "message": "Hello from n8n!",\n    "status": "success"\n  }\n}'`;
+                      navigator.clipboard.writeText(curl);
+                    }}
+                    className="absolute top-2 right-2 px-3 py-1.5 bg-white/10 hover:bg-white/20 text-white rounded-lg text-xs font-semibold transition-colors opacity-0 group-hover:opacity-100"
+                  >
+                    Copy cURL
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
 
           {/* Test Endpoint Panel */}
@@ -241,10 +304,16 @@ export default function App() {
                     {webhookLogs.map((log) => (
                       <tr key={log.id} className="text-sm group hover:bg-slate-50/50 transition-colors">
                         <td className="px-6 py-4">
-                           <span className="text-slate-900 font-medium">200 OK</span>
+                           {log.id === 'cf-pages-notice' ? (
+                             <span className="text-amber-600 font-medium">NOTICE</span>
+                           ) : (
+                             <span className="text-slate-900 font-medium">200 OK</span>
+                           )}
                         </td>
                         <td className="px-6 py-4">
-                           <span className="px-2 py-1 bg-emerald-50 text-emerald-600 rounded-md font-bold text-[10px]">{log.method}</span>
+                           <span className={`px-2 py-1 rounded-md font-bold text-[10px] ${log.id === 'cf-pages-notice' ? 'bg-amber-50 text-amber-600' : 'bg-emerald-50 text-emerald-600'}`}>
+                             {log.method}
+                           </span>
                         </td>
                         <td className="px-6 py-4">
                           <div className="flex items-center space-x-1 text-slate-500 text-xs font-medium">
@@ -252,9 +321,9 @@ export default function App() {
                             <span>{new Date(log.timestamp).toLocaleTimeString()}</span>
                           </div>
                         </td>
-                        <td className="px-6 py-4 font-mono text-slate-600 text-xs">
-                           <div className="max-w-xs md:max-w-md truncate">
-                             {JSON.stringify(log.payload)}
+                        <td className="px-6 py-4 font-mono text-slate-600 text-[11px] md:text-xs">
+                           <div className="max-w-xs md:max-w-md break-words whitespace-pre-wrap">
+                             {log.id === 'cf-pages-notice' ? log.payload.notice : JSON.stringify(log.payload)}
                            </div>
                         </td>
                       </tr>
