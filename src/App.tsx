@@ -130,6 +130,7 @@ export default function App() {
             const contact = entry.contacts && entry.contacts[0] ? entry.contacts[0] : null;
             const senderName = contact?.profile?.name || contact?.wa_id || 'Unknown';
             const senderNumber = contact?.wa_id || '';
+            const isOutgoing = entry.is_outgoing === true;
             
             entry.messages.forEach((msg: any) => {
                 if (msg.type === 'text') {
@@ -139,6 +140,7 @@ export default function App() {
                        senderName,
                        senderNumber,
                        body: msg.text?.body || '',
+                       isOutgoing,
                        raw: log
                     });
                 }
@@ -263,6 +265,26 @@ export default function App() {
       });
       
       if (response.ok) {
+        // Simpan balasan ke history / google sheet
+        await fetch('/api/webhook', {
+          method: 'POST',
+          headers: {
+            'Content-Type': 'application/json',
+            'x-webhook-signature': 'internal-outgoing-reply'
+          },
+          body: JSON.stringify({
+             messaging_product: 'whatsapp',
+             is_outgoing: true,
+             contacts: [{ wa_id: activeContact }],
+             messages: [{
+                id: 'out_' + Date.now().toString(),
+                type: 'text',
+                timestamp: Math.floor(Date.now() / 1000).toString(),
+                text: { body: replyText }
+             }]
+          })
+        }).catch(err => console.error("Gagal menyimpan balasan ke history:", err));
+
         setReplyText('');
       } else {
         console.error("Failed to send message: HTTP", response.status);
@@ -529,9 +551,9 @@ export default function App() {
                      </div>
                      <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
                         {activeMessages.map((msg, idx) => {
-                          const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber;
+                          const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber && activeMessages[idx - 1].isOutgoing === msg.isOutgoing;
                           return (
-                            <div key={msg.id} className={`bg-white p-3 shadow-sm border border-slate-100 max-w-[85%] md:max-w-[70%] self-start flex flex-col relative ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-4'}`}>
+                            <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${msg.isOutgoing ? 'self-end bg-emerald-50 border-emerald-100' : 'self-start bg-white border-slate-100'} ${isSameSenderAsPrevious ? (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-1') : (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-4' : 'rounded-2xl rounded-tl-sm mt-4')}`}>
                               <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
                               <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
                                 <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
