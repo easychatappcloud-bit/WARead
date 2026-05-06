@@ -92,9 +92,19 @@ async function startServer() {
   app.get("/api/webhook/logs", async (req, res) => {
     if (GOOGLE_SHEETS_URL) {
       try {
-        const resp = await fetch(GOOGLE_SHEETS_URL);
-        const data = await resp.json();
-        return res.status(200).json(data);
+        const resp = await fetch(GOOGLE_SHEETS_URL, { redirect: 'follow' });
+        const text = await resp.text();
+        try {
+          const data = JSON.parse(text);
+          return res.status(200).json(data);
+        } catch (e: any) {
+          return res.status(200).json([{
+            id: "error",
+            timestamp: new Date().toISOString(),
+            method: "ERROR",
+            payload: { notice: "Google Sheets membalas dengan format HTML (bukan JSON). Ini biasanya terjadi jika di Apps Script 'Who has access' BUKAN 'Anyone' (masih private/butuh login), atau URL salah. Response: " + text.substring(0, 150) + "..." }
+          }]);
+        }
       } catch(e) {
         // Fallback or ignore
       }

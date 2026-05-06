@@ -1,18 +1,31 @@
 export async function onRequest(context: any) {
   if (context.env && context.env.GOOGLE_SHEETS_URL) {
     try {
-      const resp = await fetch(context.env.GOOGLE_SHEETS_URL);
-      const data = await resp.json();
-      return new Response(JSON.stringify(data), {
-        headers: { "Content-Type": "application/json" },
-        status: 200
-      });
+      const resp = await fetch(context.env.GOOGLE_SHEETS_URL, { redirect: 'follow' });
+      const text = await resp.text();
+      try {
+        const data = JSON.parse(text);
+        return new Response(JSON.stringify(data), {
+          headers: { "Content-Type": "application/json" },
+          status: 200
+        });
+      } catch(e: any) {
+         return new Response(JSON.stringify([{
+          id: "error",
+          timestamp: new Date().toISOString(),
+          method: "ERROR",
+          payload: { notice: "Google Sheets Web App membalas dengan HTML, bukan JSON. Pastikan Anda memilih 'Who has access: Anyone' saat Deploy. Output awal: " + text.substring(0, 150) }
+        }]), {
+          headers: { "Content-Type": "application/json" },
+          status: 200
+        });
+      }
     } catch(e: any) {
       return new Response(JSON.stringify([{
         id: "error",
         timestamp: new Date().toISOString(),
         method: "ERROR",
-        payload: { notice: "Gagal mengambil data dari Google Sheets API: " + e.message }
+        payload: { notice: "Gagal mengakses Google Sheets API: " + e.message }
       }]), {
         headers: { "Content-Type": "application/json" },
         status: 200

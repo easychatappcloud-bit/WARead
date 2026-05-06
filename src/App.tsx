@@ -291,8 +291,8 @@ export default function App() {
                   <li>Rename nama sheet yang ada di paling bawah kiri menjadi <strong>Logs</strong>.</li>
                   <li>Di menu atas, pilih <strong>Extensions</strong> {'->'} <strong>Apps Script</strong>.</li>
                   <li>Hapus semua kode, lalu paste script di bawah ini.</li>
-                  <li>Klik <strong>Deploy</strong> {'->'} <strong>New deployment</strong>. Pilih type <em>Web app</em>. Atur "Who has access" menjadi <strong>Anyone</strong>. Klik Deploy.</li>
-                  <li>Copy Web App URL dan paste di kolom di bawah.</li>
+                  <li>Klik <strong>Deploy</strong> {'->'} <strong>New deployment</strong>. Pilih type <em>Web app</em>. Atur "Who has access" menjadi <strong className="text-red-500 underline">Anyone</strong> (Penting! Jangan pilih yang lain). Klik Deploy.</li>
+                  <li>Copy Web App URL dan paste di kolom di bawah. <em>Catatan: Setiap melakukan perubahan kode, Anda wajib deploy ulang melalui Manage Deployments / New Deployment.</em></li>
                 </ol>
               </div>
 
