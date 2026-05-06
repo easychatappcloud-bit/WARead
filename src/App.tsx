@@ -9,6 +9,7 @@ import { Server, Send, Code, Cloud, RefreshCw } from 'lucide-react';
 export default function App() {
   const [response, setResponse] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
+  const [endpoint, setEndpoint] = useState<string>('/api/hello');
   const [method, setMethod] = useState<'GET' | 'POST'>('GET');
   const [postData, setPostData] = useState<string>('{\n  "nama": "AI Developer"\n}');
 
@@ -16,17 +17,18 @@ export default function App() {
     setLoading(true);
     try {
       const options: RequestInit = {
-        method,
+        method: endpoint === '/api/webhook' ? 'POST' : method,
         headers: {
           'Content-Type': 'application/json',
+          ...(endpoint === '/api/webhook' && { 'x-webhook-signature': 'test-signature-123' })
         },
       };
 
-      if (method === 'POST') {
+      if (options.method === 'POST') {
         options.body = postData;
       }
 
-      const res = await fetch('/api/hello', options);
+      const res = await fetch(endpoint, options);
       const data = await res.json();
       setResponse(JSON.stringify(data, null, 2));
     } catch (error: any) {
@@ -77,39 +79,57 @@ export default function App() {
             <h2 className="text-xs font-bold text-slate-400 uppercase tracking-widest mb-4">Test Local Endpoint</h2>
             
             <div className="space-y-5">
-               <div className="bg-slate-50 border border-slate-100 rounded-xl p-4 flex items-center justify-between">
-                <code className="text-sm text-indigo-600 font-mono overflow-hidden truncate">/api/hello</code>
-              </div>
-
+              
               <div className="space-y-2">
-                <label className="text-xs font-medium text-slate-500">Metode Request</label>
-                <div className="flex space-x-2">
-                  <button
-                    onClick={() => setMethod('GET')}
-                    className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
-                      method === 'GET' 
-                        ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm' 
-                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                    }`}
-                  >
-                    GET
-                  </button>
-                  <button
-                    onClick={() => setMethod('POST')}
-                    className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
-                      method === 'POST' 
-                        ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-sm' 
-                        : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
-                    }`}
-                  >
-                    POST
-                  </button>
-                </div>
+                <label className="text-xs font-medium text-slate-500">Pilih Endpoint</label>
+                <select 
+                  value={endpoint} 
+                  onChange={(e) => setEndpoint(e.target.value)}
+                  className="w-full bg-slate-50 border border-slate-200 text-slate-700 rounded-xl p-3 text-sm font-mono focus:ring-2 focus:ring-indigo-500 outline-none hover:border-indigo-300 transition-colors cursor-pointer appearance-none"
+                >
+                  <option value="/api/hello">/api/hello (Default API)</option>
+                  <option value="/api/webhook">/api/webhook (Terima Webhook)</option>
+                </select>
               </div>
 
-              {method === 'POST' && (
+              {endpoint === '/api/hello' ? (
                 <div className="space-y-2">
-                  <label className="text-xs font-medium text-slate-500">JSON Body (POST Data)</label>
+                  <label className="text-xs font-medium text-slate-500">Metode Request</label>
+                  <div className="flex space-x-2">
+                    <button
+                      onClick={() => setMethod('GET')}
+                      className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
+                        method === 'GET' 
+                          ? 'bg-blue-50 border-blue-200 text-blue-600 shadow-sm' 
+                          : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      GET
+                    </button>
+                    <button
+                      onClick={() => setMethod('POST')}
+                      className={`flex-1 py-2 px-4 rounded-xl font-medium text-sm transition-all border ${
+                        method === 'POST' 
+                          ? 'bg-emerald-50 border-emerald-200 text-emerald-600 shadow-sm' 
+                          : 'bg-white border-slate-200 text-slate-500 hover:bg-slate-50'
+                      }`}
+                    >
+                      POST
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <div className="bg-emerald-50 border border-emerald-100 p-3 rounded-xl">
+                   <p className="text-sm text-emerald-800">
+                     <strong className="block text-emerald-900 mb-1">Mode Webhook</strong>
+                     Webhook selalu menggunakan metode <strong>POST</strong>. Request ini akan dikirimkan otomatis dengan header "x-webhook-signature" simulasi.
+                   </p>
+                </div>
+              )}
+
+              {(method === 'POST' || endpoint === '/api/webhook') && (
+                <div className="space-y-2">
+                  <label className="text-xs font-medium text-slate-500">JSON Body (Payload Webhook/POST)</label>
                   <textarea
                     value={postData}
                     onChange={(e) => setPostData(e.target.value)}

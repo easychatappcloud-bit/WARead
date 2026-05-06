@@ -29,6 +29,17 @@ async function startServer() {
     });
   });
 
+  // Simulasi Endpoint Webhook
+  app.post("/api/webhook", async (req, res) => {
+    const signature = req.headers["x-webhook-signature"];
+    return res.status(200).json({
+      status: "success",
+      message: "Webhook payload received safely (Local Express)",
+      signature_received: !!signature,
+      received_payload: req.body,
+    });
+  });
+
   // ==================
 
   // Vite middleware for development
