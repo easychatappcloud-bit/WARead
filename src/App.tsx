@@ -591,8 +591,8 @@ export default function App() {
           >
             <Menu className="w-5 h-5" />
           </button>
-          <div className="w-8 h-8 bg-indigo-600 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm">
-            E
+          <div className="w-8 h-8 rounded-lg flex items-center justify-center text-white font-bold text-lg shadow-sm overflow-hidden">
+            <img src="https://res.cloudinary.com/dzgtvyrdx/image/upload/logo_jkwbdy.jpg" alt="Logo" className="w-full h-full object-cover" />
           </div>
           <div className="flex items-center space-x-2">
             <span className="text-slate-400 font-medium text-sm">Projects</span>
