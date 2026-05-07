@@ -4,35 +4,26 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search, CornerUpLeft } from 'lucide-react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
   const [loading, setLoading] = useState<boolean>(false);
   const [endpoint, setEndpoint] = useState<string>('/api/hello');
   const [method, setMethod] = useState<'GET' | 'POST'>('GET');
-  const defaultWhatsAppPayload = `{
-  "status": "success",
-  "received_payload": [
-    {
-      "messaging_product": "whatsapp",
-      "contacts": [
-        {
-          "profile": { "name": "Ridwan Tassa" },
-          "wa_id": "6282255553833"
-        }
-      ],
-      "messages": [
-        {
-          "from": "6282255553833",
-          "timestamp": "${Math.floor(Date.now() / 1000)}",
-          "text": { "body": "Haloo, ini contoh pesan webhook baru" },
-          "type": "text"
-        }
-      ]
-    }
-  ]
-}`;
+  const defaultWhatsAppPayload = `[
+  {
+    "status": "success",
+    "message": "Webhook payload received securely",
+    "signature_received": true,
+    "received_payload": {
+      "template": "Template Pilihan Metode Pembayaran",
+      "nama": "Ridwan Tassa",
+      "message_from": "6282255553833"
+    },
+    "sheet_status": "Data forwarded to Google Sheets"
+  }
+]`;
   const [postData, setPostData] = useState<string>(defaultWhatsAppPayload);
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
   const [sheetUrl, setSheetUrl] = useState<string>('');
@@ -67,9 +58,12 @@ export default function App() {
   const mergedReadAt = useMemo(() => {
      const readDict: Record<string, number> = {};
      webhookLogs.forEach(log => {
-        let pObj = log.payload !== undefined ? log.payload : log;
-        if (pObj && pObj.received_payload) pObj = pObj.received_payload;
-        let payloadArr = Array.isArray(pObj) ? pObj : [pObj];
+        let payloadArr = log.payload;
+        if (!Array.isArray(payloadArr)) {
+          if (payloadArr && payloadArr.received_payload) payloadArr = payloadArr.received_payload;
+          else payloadArr = [payloadArr];
+        }
+        if (!Array.isArray(payloadArr)) payloadArr = [payloadArr];
 
         payloadArr.forEach((entry: any) => {
            if (entry && entry.event === 'mark_read' && entry.data) {
@@ -93,10 +87,12 @@ export default function App() {
   const visibleWebhookLogs = useMemo(() => {
     return webhookLogs.filter(log => {
       if (log.id === 'error' || log.id === 'cf-pages-notice') return true;
-      let pObj = log.payload !== undefined ? log.payload : log;
-      if (pObj && pObj.received_payload) pObj = pObj.received_payload;
-      
-      let pArr = Array.isArray(pObj) ? pObj : [pObj];
+      let pArr = log.payload;
+      if (!Array.isArray(pArr)) {
+         if (pArr && pArr.received_payload) pArr = pArr.received_payload;
+         else pArr = [pArr];
+      }
+      if (!Array.isArray(pArr)) return true;
       return !pArr.some((p: any) => p && p.event === 'mark_read');
     });
   }, [webhookLogs]);
@@ -106,35 +102,30 @@ export default function App() {
     webhookLogs.forEach(log => {
       if (log.id === 'error' || log.id === 'cf-pages-notice') return;
 
-      let pObj = log.payload !== undefined ? log.payload : log;
-      if (pObj && pObj.received_payload) pObj = pObj.received_payload;
+      let payloadArr = log.payload;
       
-      let payloadArr = Array.isArray(pObj) ? pObj : [pObj];
+      if (!Array.isArray(payloadArr)) {
+        if (payloadArr && payloadArr.received_payload) {
+             payloadArr = payloadArr.received_payload;
+        } else {
+             payloadArr = [payloadArr];
+        }
+      }
+      
+      if (!Array.isArray(payloadArr)) {
+         payloadArr = [payloadArr];
+      }
 
-      payloadArr.forEach((entry: any) => {
-         const rp = entry.received_payload || entry;
-         if (rp && rp.template === 'Template Pilihan Metode Pembayaran') {
-             messages.push({
-                 id: log.id + '_templ',
-                 timestamp: new Date(log.timestamp),
-                 senderName: rp.nama || 'Unknown',
-                 senderNumber: rp.wa_id || rp.phone || rp.nomor || 'Unknown', // Using Unknown if no number present
-                 body: `Apakah ada kendala saat proses pembayaran?\n\nKalau ${rp.nama || ''} mau ubah metode pembayaran nya bisa infoin ke aku ya 😊`,
-                 isOutgoing: false,
-                 isTemplate: true,
-                 templateName: rp.template,
-                 raw: log
-             });
-         }
+      payloadArr.forEach((rawEntry: any) => {
+         const entry = rawEntry && rawEntry.received_payload ? rawEntry.received_payload : rawEntry;
 
-         const wp = entry.received_payload || entry;
-         if (wp && wp.messaging_product === 'whatsapp' && wp.messages) {
-             const contact = wp.contacts && wp.contacts[0] ? wp.contacts[0] : null;
-             const senderName = contact?.profile?.name || contact?.wa_id || 'Unknown';
-             const senderNumber = contact?.wa_id || '';
-             const isOutgoing = wp.is_outgoing === true;
-             
-             wp.messages.forEach((msg: any) => {
+         if (entry && entry.messaging_product === 'whatsapp' && entry.messages) {
+            const contact = entry.contacts && entry.contacts[0] ? entry.contacts[0] : null;
+            const senderName = contact?.profile?.name || contact?.wa_id || 'Unknown';
+            const senderNumber = contact?.wa_id || '';
+            const isOutgoing = entry.is_outgoing === true;
+            
+            entry.messages.forEach((msg: any) => {
                 if (msg.type === 'text') {
                     messages.push({
                        id: msg.id || log.id + Math.random().toString(),
@@ -146,6 +137,35 @@ export default function App() {
                        raw: log
                     });
                 }
+            });
+         } else if (entry && entry.template === "Template Pilihan Metode Pembayaran" && entry.message_from) {
+            const senderNumber = entry.message_from;
+            const senderName = entry.nama || senderNumber;
+            const isOutgoing = true;
+
+            messages.push({
+               id: log.id + Math.random().toString(),
+               timestamp: new Date(log.timestamp),
+               senderName,
+               senderNumber,
+               body: `Apakah ada kendala saat proses pembayaran?\n\nKalau *${entry.nama || 'kamu'}* mau ubah metode pembayaran nya bisa infoin ke aku ya 😊\n\nSent by CreatorLab ID`,
+               isOutgoing,
+               raw: log,
+               buttons: ["Ubah Metode Pembayaran", "Mau tanya, boleh?"]
+            });
+         } else if (entry && entry.template && entry.message_from) {
+            const senderNumber = entry.message_from;
+            const senderName = entry.nama || senderNumber;
+            const isOutgoing = true;
+
+            messages.push({
+               id: log.id + Math.random().toString(),
+               timestamp: new Date(log.timestamp),
+               senderName,
+               senderNumber,
+               body: `[Template Sender: ${entry.template}]\nNama: ${entry.nama}`,
+               isOutgoing,
+               raw: log
             });
          }
       });
@@ -300,14 +320,27 @@ export default function App() {
   };
 
   const renderMessageBody = (text: string, query: string) => {
-    if (!query.trim()) return text;
+    const renderBold = (str: string) => {
+       const parts = str.split(/(\*[^*]+\*)/g);
+       return (
+          <>
+            {parts.map((p, i) => 
+               p.startsWith('*') && p.endsWith('*') && p.length > 2 
+                  ? <strong key={i} className="font-bold">{p.slice(1, -1)}</strong> 
+                  : p
+            )}
+          </>
+       );
+    };
+
+    if (!query.trim()) return renderBold(text);
     const parts = text.split(new RegExp(`(${query})`, 'gi'));
     return (
       <>
         {parts.map((part, i) => 
           part.toLowerCase() === query.toLowerCase() ? 
             <mark key={i} className="bg-emerald-200 text-slate-900 rounded-sm px-0.5">{part}</mark> : 
-            part
+            renderBold(part)
         )}
       </>
     );
@@ -554,34 +587,19 @@ export default function App() {
                      <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
                         {activeMessages.map((msg, idx) => {
                           const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber && activeMessages[idx - 1].isOutgoing === msg.isOutgoing;
-                          
-                          if (msg.isTemplate) {
-                            return (
-                               <div key={msg.id} className={`flex flex-col space-y-1 items-start max-w-[85%] md:max-w-[70%] self-start ${isSameSenderAsPrevious ? 'mt-1' : 'mt-4'}`}>
-                                  <div className={`p-3 shadow-sm border flex flex-col relative bg-white border-slate-100 w-full ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm' : 'rounded-2xl rounded-tl-sm'}`}>
-                                    <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
-                                    <div className="flex justify-between items-end mt-2 pt-1">
-                                       <span className="text-xs text-slate-500 font-medium">Sent by CreatorLab ID</span>
-                                       <span className="text-[10px] text-slate-400 ml-4 flex-shrink-0">{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
-                                    </div>
-                                  </div>
-                                  <div className="flex flex-col w-full bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden divide-y divide-slate-100">
-                                     <button className="py-2.5 px-4 flex items-center justify-center space-x-2 hover:bg-slate-50 transition-colors text-emerald-700 font-medium text-[15px]">
-                                        <CornerUpLeft className="w-4 h-4" />
-                                        <span>Ubah Metode Pembayaran</span>
-                                     </button>
-                                     <button className="py-2.5 px-4 flex items-center justify-center space-x-2 hover:bg-slate-50 transition-colors text-emerald-700 font-medium text-[15px]">
-                                        <CornerUpLeft className="w-4 h-4" />
-                                        <span>Mau tanya, boleh?</span>
-                                     </button>
-                                  </div>
-                               </div>
-                            );
-                          }
-
                           return (
                             <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${msg.isOutgoing ? 'self-end bg-emerald-50 border-emerald-100' : 'self-start bg-white border-slate-100'} ${isSameSenderAsPrevious ? (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-1') : (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-4' : 'rounded-2xl rounded-tl-sm mt-4')}`}>
                               <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
+                              {msg.buttons && msg.buttons.length > 0 && (
+                                <div className="mt-2 pt-2 border-t border-emerald-200/60 flex flex-col space-y-1 w-full">
+                                  {msg.buttons.map((btn: string, i: number) => (
+                                    <button key={i} className="py-2.5 px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-sm font-semibold rounded-xl text-center transition-colors flex items-center justify-center space-x-2">
+                                      <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
+                                      <span>{btn}</span>
+                                    </button>
+                                  ))}
+                                </div>
+                              )}
                               <div className="text-[10px] text-slate-400 text-right mt-1 flex justify-end items-center space-x-1 self-end min-w-[50px]">
                                 <span>{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
                               </div>
