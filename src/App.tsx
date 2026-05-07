@@ -208,7 +208,7 @@ export default function App() {
                senderNumber,
                body: entry.caption || '',
                imageUrl: entry.image_url,
-               isOutgoing: true,
+               isOutgoing: false,
                raw: log
             });
          } else if (entry && entry.template && entry.message_from) {
