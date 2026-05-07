@@ -174,6 +174,29 @@ export default function App() {
                raw: log,
                buttons: ["Lihat Metode Pembayaran"]
             });
+         } else if (entry && entry.template === "Boleh bertanya" && entry.message_from) {
+            const senderNumber = entry.message_from;
+            const senderName = entry.nama || senderNumber;
+
+            messages.push({
+               id: log.id + Math.random().toString(),
+               timestamp: new Date(log.timestamp),
+               senderName,
+               senderNumber,
+               body: "Mau tanya, boleh?",
+               isOutgoing: false,
+               raw: log
+            });
+
+            messages.push({
+               id: log.id + Math.random().toString(),
+               timestamp: new Date(new Date(log.timestamp).getTime() + 1000),
+               senderName,
+               senderNumber,
+               body: "Boleh dong. Mau tanya apa aja bakal aku jawab, emangnya mau tanya apa? 😁",
+               isOutgoing: true,
+               raw: log
+            });
          } else if (entry && entry.template && entry.message_from) {
             const senderNumber = entry.message_from;
             const senderName = entry.nama || senderNumber;
