@@ -26,6 +26,7 @@ export default function App() {
 ]`;
   const [postData, setPostData] = useState<string>(defaultWhatsAppPayload);
   const [webhookLogs, setWebhookLogs] = useState<any[]>([]);
+  const [localLogs, setLocalLogs] = useState<any[]>([]);
   const [sheetUrl, setSheetUrl] = useState<string>('');
   const [isSavingSheet, setIsSavingSheet] = useState<boolean>(false);
   const [sheetSaved, setSheetSaved] = useState<boolean>(false);
@@ -60,6 +61,9 @@ export default function App() {
      const readDict: Record<string, number> = {};
      webhookLogs.forEach(log => {
         let payloadArr = log.payload;
+        if (typeof payloadArr === 'string') {
+           try { payloadArr = JSON.parse(payloadArr); } catch(e) {}
+        }
         if (!Array.isArray(payloadArr)) {
           if (payloadArr && payloadArr.received_payload) payloadArr = payloadArr.received_payload;
           else payloadArr = [payloadArr];
@@ -89,6 +93,9 @@ export default function App() {
     return webhookLogs.filter(log => {
       if (log.id === 'error' || log.id === 'cf-pages-notice') return true;
       let pArr = log.payload;
+      if (typeof pArr === 'string') {
+         try { pArr = JSON.parse(pArr); } catch(e) {}
+      }
       if (!Array.isArray(pArr)) {
          if (pArr && pArr.received_payload) pArr = pArr.received_payload;
          else pArr = [pArr];
@@ -100,10 +107,15 @@ export default function App() {
 
   const chatMessages = useMemo(() => {
     const messages: any[] = [];
-    webhookLogs.forEach(log => {
+    const seenIds = new Set<string>();
+    
+    [...webhookLogs, ...localLogs].forEach(log => {
       if (log.id === 'error' || log.id === 'cf-pages-notice') return;
 
       let payloadArr = log.payload;
+      if (typeof payloadArr === 'string') {
+         try { payloadArr = JSON.parse(payloadArr); } catch(e) {}
+      }
       
       if (!Array.isArray(payloadArr)) {
         if (payloadArr && payloadArr.received_payload) {
@@ -128,15 +140,19 @@ export default function App() {
             
             entry.messages.forEach((msg: any, idx: number) => {
                 if (msg.type === 'text') {
-                    messages.push({
-                       id: msg.id || `${log.id}_msg_${idx}`,
-                       timestamp: msg.timestamp ? new Date(parseInt(msg.timestamp) * 1000) : new Date(log.timestamp),
-                       senderName,
-                       senderNumber,
-                       body: msg.text?.body || '',
-                       isOutgoing,
-                       raw: log
-                    });
+                    const finalId = msg.id || `${log.id}_msg_${idx}`;
+                    if (!seenIds.has(finalId)) {
+                        seenIds.add(finalId);
+                        messages.push({
+                           id: finalId,
+                           timestamp: msg.timestamp ? new Date(parseInt(msg.timestamp) * 1000) : new Date(log.timestamp),
+                           senderName,
+                           senderNumber,
+                           body: msg.text?.body || '',
+                           isOutgoing,
+                           raw: log
+                        });
+                    }
                 }
             });
          } else if (entry && entry.template === "Template Pilihan Metode Pembayaran" && entry.message_from) {
@@ -232,7 +248,7 @@ export default function App() {
     
     // Sort ascending (oldest to newest)
     return messages.sort((a, b) => a.timestamp.getTime() - b.timestamp.getTime());
-  }, [webhookLogs]);
+  }, [webhookLogs, localLogs]);
 
   const contacts = useMemo(() => {
     const map = new Map<string, { senderName: string, senderNumber: string, lastMessage: string, lastTimestamp: Date, unreadCount: number }>();
@@ -327,7 +343,7 @@ export default function App() {
   const prevMessageCount = useRef(activeMessages.length);
   const replyTextareaRef = useRef<HTMLTextAreaElement>(null);
 
-  const handleSendMessage = async (e: React.FormEvent) => {
+  const handleSendMessage = async (e: any) => {
     e.preventDefault();
     if (!replyText.trim() || !activeContact) return;
 
@@ -353,8 +369,8 @@ export default function App() {
       }
     };
     
-    // Simpan balasan ke state secara optimistik
-    setWebhookLogs(prev => [...prev, fakeLog]);
+    // Simpan balasan ke state secara optimistik (ini akan hilang sendiri kalau di-dedup saat server merespon)
+    setLocalLogs(prev => [...prev, fakeLog]);
 
     // Keep focus
     setTimeout(() => {
@@ -373,7 +389,7 @@ export default function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload)
-      });
+      }).catch(e => { console.error(e); return null; });
 
       const fetch2 = fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook-test/terima-pengiriman-pesan', {
         method: 'POST',
@@ -381,11 +397,11 @@ export default function App() {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload)
-      });
+      }).catch(e => { console.error(e); return null; });
       
-      const [response] = await Promise.all([fetch1, fetch2]);
+      const [response1, response2] = await Promise.all([fetch1, fetch2]);
       
-      if (response.ok) {
+      if ((response1 && response1.ok) || (response2 && response2.ok)) {
         fetch('/api/webhook', {
           method: 'POST',
           headers: {
