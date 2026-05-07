@@ -639,7 +639,7 @@ export default function App() {
         )}
 
         {/* Main Content Area */}
-        <div className="flex-1 w-full min-w-0 bg-slate-50 overflow-y-auto p-0 md:p-8 flex flex-col">
+        <div className={`flex-1 w-full min-w-0 bg-slate-50 p-0 md:p-8 flex flex-col ${activeTab === 'inbox' ? 'overflow-hidden' : 'overflow-y-auto'}`}>
            {activeTab === 'inbox' && (
              <div className="flex-1 w-full min-h-0 flex bg-white md:rounded-2xl md:border border-slate-200 md:shadow-sm overflow-hidden relative">
                
