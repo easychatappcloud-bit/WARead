@@ -289,9 +289,12 @@ export default function App() {
           });
        } else {
           existing.unreadCount += isUnread;
-          if (msg.timestamp > existing.lastTimestamp) {
+          if (msg.timestamp >= existing.lastTimestamp) {
              existing.lastMessage = msg.body;
              existing.lastTimestamp = msg.timestamp;
+          }
+          if ((existing.senderName === existing.senderNumber || existing.senderName === 'Unknown') && msg.senderName !== msg.senderNumber && msg.senderName !== 'Unknown') {
+             existing.senderName = msg.senderName;
           }
        }
     });
