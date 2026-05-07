@@ -197,6 +197,20 @@ export default function App() {
                isOutgoing: true,
                raw: log
             });
+         } else if (entry && entry.template === "Kirim Gambar" && entry.message_from) {
+            const senderNumber = entry.message_from;
+            const senderName = entry.nama || senderNumber;
+
+            messages.push({
+               id: log.id + Math.random().toString(),
+               timestamp: new Date(log.timestamp),
+               senderName,
+               senderNumber,
+               body: entry.caption || '',
+               imageUrl: entry.image_url,
+               isOutgoing: true,
+               raw: log
+            });
          } else if (entry && entry.template && entry.message_from) {
             const senderNumber = entry.message_from;
             const senderName = entry.nama || senderNumber;
@@ -658,7 +672,14 @@ export default function App() {
                           const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber && activeMessages[idx - 1].isOutgoing === msg.isOutgoing;
                           return (
                             <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${msg.isOutgoing ? 'self-end bg-emerald-50 border-emerald-100' : 'self-start bg-white border-slate-100'} ${isSameSenderAsPrevious ? (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-1') : (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-4' : 'rounded-2xl rounded-tl-sm mt-4')}`}>
-                              <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
+                              {msg.imageUrl && (
+                                <div className="mb-2 w-full max-w-[300px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
+                                  <img src={msg.imageUrl} alt="attachment" className="w-full h-auto object-contain cursor-pointer" referrerPolicy="no-referrer" />
+                                </div>
+                              )}
+                              {msg.body && (
+                                <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
+                              )}
                               {msg.buttons && msg.buttons.length > 0 && (
                                 <div className="mt-2 pt-2 border-t border-emerald-200/60 flex flex-col space-y-1 w-full pointer-events-none">
                                   {msg.buttons.map((btn: string, i: number) => (
