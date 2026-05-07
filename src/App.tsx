@@ -191,6 +191,19 @@ export default function App() {
                raw: log,
                buttons: ["Lihat Metode Pembayaran"]
             });
+         } else if (entry && entry.template === "Form Ubah Metode Pembayaran" && entry.message_from) {
+            const senderNumber = entry.message_from;
+            const senderName = entry.nama || senderNumber;
+
+            messages.push({
+               id: `${log.id}_form_ubah`,
+               timestamp: new Date(log.timestamp),
+               senderName,
+               senderNumber,
+               body: `*${entry.metode_pembayaran || ''}*\nPurchase Experience : ${entry.feedback_purchase_experience || '-'}\nDelivery and Setup : ${entry.feedback_delivery_and_setup || '-'}\nCustomer Service : ${entry.feedback_customer_service || '-'}`,
+               isOutgoing: false,
+               raw: log
+            });
          } else if (entry && entry.template === "Boleh bertanya" && entry.message_from) {
             const senderNumber = entry.message_from;
             const senderName = entry.nama || senderNumber;
