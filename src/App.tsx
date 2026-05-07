@@ -313,7 +313,7 @@ export default function App() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim() || !activeContact) return;
+    if (!replyText.trim() || !activeContact || sendingReply) return;
 
     setSendingReply(true);
     try {
@@ -657,10 +657,11 @@ export default function App() {
                      <div className="p-3 bg-white border-t border-slate-200 z-10 shrink-0">
                         <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
                            <textarea
-                             className="flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none scrollbar-thin overflow-y-auto"
+                             className={`flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none scrollbar-thin overflow-y-auto ${sendingReply ? 'opacity-70 cursor-not-allowed' : ''}`}
                              placeholder="Ketik balasan..."
                              rows={1}
                              value={replyText}
+                             disabled={sendingReply}
                              onChange={(e) => setReplyText(e.target.value)}
                              onKeyDown={(e) => {
                                if (e.key === 'Enter' && !e.shiftKey) {
