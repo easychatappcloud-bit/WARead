@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search } from 'lucide-react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search, X, Download } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
@@ -36,6 +36,7 @@ export default function App() {
   const [isSidebarOpen, setIsSidebarOpen] = useState<boolean>(false);
   const [replyText, setReplyText] = useState<string>('');
   const [sendingReply, setSendingReply] = useState<boolean>(false);
+  const [fullscreenImage, setFullscreenImage] = useState<string | null>(null);
   const messagesEndRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = () => {
@@ -674,7 +675,7 @@ export default function App() {
                             <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${msg.isOutgoing ? 'self-end bg-emerald-50 border-emerald-100' : 'self-start bg-white border-slate-100'} ${isSameSenderAsPrevious ? (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-1') : (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-4' : 'rounded-2xl rounded-tl-sm mt-4')}`}>
                               {msg.imageUrl && (
                                 <div className="mb-2 w-full max-w-[300px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
-                                  <img src={msg.imageUrl} alt="attachment" className="w-full h-auto object-contain cursor-pointer" referrerPolicy="no-referrer" />
+                                  <img src={msg.imageUrl} alt="attachment" className="w-full h-auto object-contain cursor-pointer" referrerPolicy="no-referrer" onClick={() => setFullscreenImage(msg.imageUrl)} />
                                 </div>
                               )}
                               {msg.body && (
@@ -901,6 +902,56 @@ export default function App() {
            )}
         </div>
       </main>
+
+      {fullscreenImage && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/90 p-4 backdrop-blur-sm" onClick={() => setFullscreenImage(null)}>
+          <div className="absolute top-4 right-4 flex space-x-3 items-center z-[60]" onClick={e => e.stopPropagation()}>
+             <button 
+                onClick={async () => {
+                   try {
+                     const response = await fetch(fullscreenImage);
+                     const blob = await response.blob();
+                     const url = window.URL.createObjectURL(blob);
+                     const a = document.createElement('a');
+                     a.href = url;
+                     a.download = fullscreenImage.split('/').pop() || 'image.jpg';
+                     document.body.appendChild(a);
+                     a.click();
+                     window.URL.revokeObjectURL(url);
+                     document.body.removeChild(a);
+                   } catch (error) {
+                     console.error("Error downloading image:", error);
+                     const a = document.createElement('a');
+                     a.href = fullscreenImage;
+                     a.download = fullscreenImage.split('/').pop() || 'image.jpg';
+                     a.target = '_blank';
+                     document.body.appendChild(a);
+                     a.click();
+                     document.body.removeChild(a);
+                   }
+                }} 
+                className="text-white hover:text-emerald-400 p-2.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors backdrop-blur-md"
+                title="Download Image"
+             >
+                <Download className="w-5 h-5" />
+             </button>
+             <button 
+                onClick={() => setFullscreenImage(null)} 
+                className="text-white hover:text-red-400 p-2.5 bg-white/10 hover:bg-white/20 rounded-full transition-colors backdrop-blur-md"
+                title="Close Fullscreen"
+             >
+                <X className="w-5 h-5" />
+             </button>
+          </div>
+          <img 
+            src={fullscreenImage} 
+            alt="Fullscreen view" 
+            className="max-w-full max-h-full object-contain drop-shadow-2xl" 
+            referrerPolicy="no-referrer"
+            onClick={e => e.stopPropagation()} 
+          />
+        </div>
+      )}
     </div>
   );
 }
