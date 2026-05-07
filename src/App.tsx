@@ -230,7 +230,7 @@ export default function App() {
                isOutgoing: true,
                raw: log
             });
-         } else if (entry && entry.template === "Kirim Gambar" && entry.message_from) {
+         } else if (entry && (entry.template === "Kirim Gambar" || entry.template === "Kirim Audio") && entry.message_from) {
             const senderNumber = entry.message_from;
             const senderName = entry.nama || senderNumber;
 
@@ -242,6 +242,7 @@ export default function App() {
                body: entry.caption || '',
                imageUrl: entry.image_url,
                videoUrl: entry.video_url,
+               audioUrl: entry.audio_url,
                isOutgoing: false,
                raw: log
             });
@@ -281,7 +282,9 @@ export default function App() {
        }
 
        let displayMessage = msg.body;
-       if (msg.videoUrl) {
+       if (msg.audioUrl) {
+           displayMessage = displayMessage ? `🎵 ${displayMessage}` : '🎵 Audio';
+       } else if (msg.videoUrl) {
            displayMessage = displayMessage ? `📹 ${displayMessage}` : '📹 Video';
        } else if (msg.imageUrl) {
            displayMessage = displayMessage ? `📷 ${displayMessage}` : '📷 Gambar';
@@ -734,6 +737,11 @@ export default function App() {
                               {msg.videoUrl && (
                                 <div className="mb-2 w-full max-w-[300px] bg-black rounded-lg overflow-hidden border border-slate-200">
                                   <video src={msg.videoUrl} controls className="w-full h-auto max-h-[300px] outline-none" preload="metadata" />
+                                </div>
+                              )}
+                              {msg.audioUrl && (
+                                <div className="mb-2 w-full max-w-[300px]">
+                                  <audio src={msg.audioUrl} controls className="w-full h-[40px] outline-none" preload="metadata" />
                                 </div>
                               )}
                               {msg.body && (
