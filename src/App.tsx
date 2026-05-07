@@ -320,18 +320,26 @@ export default function App() {
     setReplyText('');
     
     // Add to UI immediately (optimistic update)
-    const newMessage = {
-      id: 'out_' + Date.now().toString(),
-      timestamp: new Date(),
-      senderName: 'CreatorLab ID',
-      senderNumber: activeContact,
-      body: textToSend,
-      isOutgoing: true,
-      raw: null
+    const newTimestamp = new Date();
+    const fakeLogId = 'out_' + Date.now().toString();
+    const fakeLog = {
+      id: fakeLogId,
+      timestamp: newTimestamp.toISOString(),
+      payload: {
+        messaging_product: 'whatsapp',
+        is_outgoing: true,
+        contacts: [{ wa_id: activeContact }],
+        messages: [{
+           id: fakeLogId,
+           type: 'text',
+           timestamp: Math.floor(newTimestamp.getTime() / 1000).toString(),
+           text: { body: textToSend }
+        }]
+      }
     };
     
-    // Simpan balasan ke history / google sheet secara optimistik
-    setMessages(prev => [...prev, newMessage]);
+    // Simpan balasan ke state secara optimistik
+    setWebhookLogs(prev => [...prev, fakeLog]);
 
     // Keep focus
     setTimeout(() => {
@@ -364,9 +372,9 @@ export default function App() {
              is_outgoing: true,
              contacts: [{ wa_id: activeContact }],
              messages: [{
-                id: newMessage.id,
+                id: fakeLogId,
                 type: 'text',
-                timestamp: Math.floor(newMessage.timestamp.getTime() / 1000).toString(),
+                timestamp: Math.floor(newTimestamp.getTime() / 1000).toString(),
                 text: { body: textToSend }
              }]
           })
