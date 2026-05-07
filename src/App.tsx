@@ -126,10 +126,10 @@ export default function App() {
             const senderNumber = contact?.wa_id || '';
             const isOutgoing = entry.is_outgoing === true;
             
-            entry.messages.forEach((msg: any) => {
+            entry.messages.forEach((msg: any, idx: number) => {
                 if (msg.type === 'text') {
                     messages.push({
-                       id: msg.id || log.id + Math.random().toString(),
+                       id: msg.id || `${log.id}_msg_${idx}`,
                        timestamp: msg.timestamp ? new Date(parseInt(msg.timestamp) * 1000) : new Date(log.timestamp),
                        senderName,
                        senderNumber,
@@ -145,7 +145,7 @@ export default function App() {
             const isOutgoing = true;
 
             messages.push({
-               id: log.id + Math.random().toString(),
+               id: `${log.id}_template_1`,
                timestamp: new Date(log.timestamp),
                senderName,
                senderNumber,
@@ -156,7 +156,7 @@ export default function App() {
             });
 
             messages.push({
-               id: log.id + Math.random().toString(),
+               id: `${log.id}_template_2`,
                timestamp: new Date(new Date(log.timestamp).getTime() + 1000),
                senderName,
                senderNumber,
@@ -166,7 +166,7 @@ export default function App() {
             });
 
             messages.push({
-               id: log.id + Math.random().toString(),
+               id: `${log.id}_template_3`,
                timestamp: new Date(new Date(log.timestamp).getTime() + 2000),
                senderName,
                senderNumber,
@@ -180,7 +180,7 @@ export default function App() {
             const senderName = entry.nama || senderNumber;
 
             messages.push({
-               id: log.id + Math.random().toString(),
+               id: `${log.id}_tanya_1`,
                timestamp: new Date(log.timestamp),
                senderName,
                senderNumber,
@@ -190,7 +190,7 @@ export default function App() {
             });
 
             messages.push({
-               id: log.id + Math.random().toString(),
+               id: `${log.id}_tanya_2`,
                timestamp: new Date(new Date(log.timestamp).getTime() + 1000),
                senderName,
                senderNumber,
@@ -203,7 +203,7 @@ export default function App() {
             const senderName = entry.nama || senderNumber;
 
             messages.push({
-               id: log.id + Math.random().toString(),
+               id: `${log.id}_gambar`,
                timestamp: new Date(log.timestamp),
                senderName,
                senderNumber,
@@ -218,7 +218,7 @@ export default function App() {
             const isOutgoing = true;
 
             messages.push({
-               id: log.id + Math.random().toString(),
+               id: `${log.id}_generic_template`,
                timestamp: new Date(log.timestamp),
                senderName,
                senderNumber,
