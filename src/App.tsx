@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search } from 'lucide-react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search, CornerUpLeft } from 'lucide-react';
 
 export default function App() {
   const [response, setResponse] = useState<string>('');
@@ -125,7 +125,22 @@ export default function App() {
          payloadArr = [payloadArr];
       }
 
-      payloadArr.forEach(entry => {
+      payloadArr.forEach((entry: any) => {
+         if (entry && entry.received_payload && entry.received_payload.template === 'Template Pilihan Metode Pembayaran') {
+             const rp = entry.received_payload;
+             messages.push({
+                 id: log.id + '_templ',
+                 timestamp: new Date(log.timestamp),
+                 senderName: rp.nama || 'Unknown',
+                 senderNumber: rp.wa_id || rp.phone || rp.nomor || 'Unknown', // Using Unknown if no number present
+                 body: `Apakah ada kendala saat proses pembayaran?\n\nKalau ${rp.nama || ''} mau ubah metode pembayaran nya bisa infoin ke aku ya 😊`,
+                 isOutgoing: false,
+                 isTemplate: true,
+                 templateName: rp.template,
+                 raw: log
+             });
+         }
+
          if (entry && entry.messaging_product === 'whatsapp' && entry.messages) {
             const contact = entry.contacts && entry.contacts[0] ? entry.contacts[0] : null;
             const senderName = contact?.profile?.name || contact?.wa_id || 'Unknown';
@@ -552,6 +567,31 @@ export default function App() {
                      <div className="flex-1 overflow-y-auto p-4 md:p-6 flex flex-col space-y-4 z-10">
                         {activeMessages.map((msg, idx) => {
                           const isSameSenderAsPrevious = idx > 0 && activeMessages[idx - 1].senderNumber === msg.senderNumber && activeMessages[idx - 1].isOutgoing === msg.isOutgoing;
+                          
+                          if (msg.isTemplate) {
+                            return (
+                               <div key={msg.id} className={`flex flex-col space-y-1 items-start max-w-[85%] md:max-w-[70%] self-start ${isSameSenderAsPrevious ? 'mt-1' : 'mt-4'}`}>
+                                  <div className={`p-3 shadow-sm border flex flex-col relative bg-white border-slate-100 w-full ${isSameSenderAsPrevious ? 'rounded-2xl rounded-tl-sm' : 'rounded-2xl rounded-tl-sm'}`}>
+                                    <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
+                                    <div className="flex justify-between items-end mt-2 pt-1">
+                                       <span className="text-xs text-slate-500 font-medium">Sent by CreatorLab ID</span>
+                                       <span className="text-[10px] text-slate-400 ml-4 flex-shrink-0">{msg.timestamp.toLocaleTimeString([], {hour: '2-digit', minute:'2-digit'})}</span>
+                                    </div>
+                                  </div>
+                                  <div className="flex flex-col w-full bg-white border border-slate-100 rounded-xl shadow-sm overflow-hidden divide-y divide-slate-100">
+                                     <button className="py-2.5 px-4 flex items-center justify-center space-x-2 hover:bg-slate-50 transition-colors text-emerald-700 font-medium text-[15px]">
+                                        <CornerUpLeft className="w-4 h-4" />
+                                        <span>Ubah Metode Pembayaran</span>
+                                     </button>
+                                     <button className="py-2.5 px-4 flex items-center justify-center space-x-2 hover:bg-slate-50 transition-colors text-emerald-700 font-medium text-[15px]">
+                                        <CornerUpLeft className="w-4 h-4" />
+                                        <span>Mau tanya, boleh?</span>
+                                     </button>
+                                  </div>
+                               </div>
+                            );
+                          }
+
                           return (
                             <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${msg.isOutgoing ? 'self-end bg-emerald-50 border-emerald-100' : 'self-start bg-white border-slate-100'} ${isSameSenderAsPrevious ? (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-1') : (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-4' : 'rounded-2xl rounded-tl-sm mt-4')}`}>
                               <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
