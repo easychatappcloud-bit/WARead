@@ -359,7 +359,7 @@ export default function App() {
   }, [activeContact, chatMessages]);
 
   useEffect(() => {
-     if (contacts.length > 0 && !activeContact) {
+     if (contacts.length > 0 && !activeContact && window.innerWidth >= 768) {
         setActiveContact(contacts[0].senderNumber);
      }
   }, [contacts, activeContact]);
@@ -710,7 +710,7 @@ export default function App() {
                </div>
 
                {/* Chat Panel */}
-               <div className={`flex-1 flex flex-col bg-[#efeae2] relative h-full overflow-hidden ${!activeContact ? 'hidden md:flex' : 'flex'}`}>
+               <div className={`flex-1 flex-col bg-[#efeae2] relative h-full overflow-hidden ${!activeContact ? 'hidden md:flex' : 'flex'}`}>
                  <div className="absolute inset-0 opacity-[0.06] pointer-events-none z-0" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
                  
                  {activeContact ? (
