@@ -314,13 +314,34 @@ export default function App() {
 
   const handleSendMessage = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!replyText.trim() || !activeContact || sendingReply) return;
+    if (!replyText.trim() || !activeContact) return;
 
-    setSendingReply(true);
+    const textToSend = replyText;
+    setReplyText('');
+    
+    // Add to UI immediately (optimistic update)
+    const newMessage = {
+      id: 'out_' + Date.now().toString(),
+      timestamp: new Date(),
+      senderName: 'CreatorLab ID',
+      senderNumber: activeContact,
+      body: textToSend,
+      isOutgoing: true,
+      raw: null
+    };
+    
+    // Simpan balasan ke history / google sheet secara optimistik
+    setMessages(prev => [...prev, newMessage]);
+
+    // Keep focus
+    setTimeout(() => {
+        replyTextareaRef.current?.focus();
+    }, 0);
+
     try {
       const payload = {
         to: activeContact,
-        text: replyText
+        text: textToSend
       };
       
       const response = await fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook/terima-pengiriman-pesan', {
@@ -332,8 +353,7 @@ export default function App() {
       });
       
       if (response.ok) {
-        // Simpan balasan ke history / google sheet
-        await fetch('/api/webhook', {
+        fetch('/api/webhook', {
           method: 'POST',
           headers: {
             'Content-Type': 'application/json',
@@ -344,26 +364,19 @@ export default function App() {
              is_outgoing: true,
              contacts: [{ wa_id: activeContact }],
              messages: [{
-                id: 'out_' + Date.now().toString(),
+                id: newMessage.id,
                 type: 'text',
-                timestamp: Math.floor(Date.now() / 1000).toString(),
-                text: { body: replyText }
+                timestamp: Math.floor(newMessage.timestamp.getTime() / 1000).toString(),
+                text: { body: textToSend }
              }]
           })
         }).catch(err => console.error("Gagal menyimpan balasan ke history:", err));
-
-        setReplyText('');
       } else {
         console.error("Failed to send message: HTTP", response.status);
       }
       
     } catch (error) {
        console.error("Failed to send message", error);
-    } finally {
-      setSendingReply(false);
-      setTimeout(() => {
-         replyTextareaRef.current?.focus();
-      }, 0);
     }
   };
 
@@ -662,11 +675,10 @@ export default function App() {
                         <form onSubmit={handleSendMessage} className="flex items-end space-x-2">
                            <textarea
                              ref={replyTextareaRef}
-                             className={`flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none scrollbar-thin overflow-y-auto ${sendingReply ? 'opacity-70 cursor-not-allowed' : ''}`}
+                             className={`flex-1 max-h-32 min-h-[44px] bg-slate-50 border border-slate-200 rounded-xl px-4 py-2.5 text-[15px] focus:outline-none focus:ring-1 focus:ring-emerald-500 resize-none scrollbar-thin overflow-y-auto`}
                              placeholder="Ketik balasan..."
                              rows={1}
                              value={replyText}
-                             disabled={sendingReply}
                              onChange={(e) => setReplyText(e.target.value)}
                              onKeyDown={(e) => {
                                if (e.key === 'Enter' && !e.shiftKey) {
@@ -677,14 +689,10 @@ export default function App() {
                            />
                            <button
                              type="submit"
-                             disabled={!replyText.trim() || sendingReply}
+                             disabled={!replyText.trim()}
                              className="h-[44px] w-[44px] flex items-center justify-center bg-emerald-500 hover:bg-emerald-600 disabled:bg-emerald-200 text-white rounded-xl flex-shrink-0 transition-colors cursor-pointer"
                            >
-                             {sendingReply ? (
-                               <RefreshCw className="w-5 h-5 animate-spin" />
-                             ) : (
-                               <Send className="w-5 h-5 ml-0.5" />
-                             )}
+                             <Send className="w-5 h-5 ml-0.5" />
                            </button>
                         </form>
                      </div>
