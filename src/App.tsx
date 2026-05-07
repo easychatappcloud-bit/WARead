@@ -153,6 +153,16 @@ export default function App() {
                raw: log,
                buttons: ["Ubah Metode Pembayaran", "Mau tanya, boleh?"]
             });
+
+            messages.push({
+               id: log.id + Math.random().toString(),
+               timestamp: new Date(new Date(log.timestamp).getTime() + 1000),
+               senderName,
+               senderNumber,
+               body: "Ubah Metode Pembayaran",
+               isOutgoing: false,
+               raw: log
+            });
          } else if (entry && entry.template && entry.message_from) {
             const senderNumber = entry.message_from;
             const senderName = entry.nama || senderNumber;
