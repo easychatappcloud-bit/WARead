@@ -163,6 +163,17 @@ export default function App() {
                isOutgoing: false,
                raw: log
             });
+
+            messages.push({
+               id: log.id + Math.random().toString(),
+               timestamp: new Date(new Date(log.timestamp).getTime() + 2000),
+               senderName,
+               senderNumber,
+               body: "Ok abangkuuh aku kirim list metode pembayaran yang tersedia ya...\nSent by CreatorLab ID",
+               isOutgoing: true,
+               raw: log,
+               buttons: ["Lihat Metode Pembayaran"]
+            });
          } else if (entry && entry.template && entry.message_from) {
             const senderNumber = entry.message_from;
             const senderName = entry.nama || senderNumber;
