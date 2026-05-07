@@ -591,12 +591,12 @@ export default function App() {
                             <div key={msg.id} className={`p-3 shadow-sm border max-w-[85%] md:max-w-[70%] flex flex-col relative ${msg.isOutgoing ? 'self-end bg-emerald-50 border-emerald-100' : 'self-start bg-white border-slate-100'} ${isSameSenderAsPrevious ? (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-1' : 'rounded-2xl rounded-tl-sm mt-1') : (msg.isOutgoing ? 'rounded-2xl rounded-tr-sm mt-4' : 'rounded-2xl rounded-tl-sm mt-4')}`}>
                               <p className="text-slate-800 leading-relaxed text-[14px] md:text-[15px] whitespace-pre-wrap">{renderMessageBody(msg.body, searchQuery)}</p>
                               {msg.buttons && msg.buttons.length > 0 && (
-                                <div className="mt-2 pt-2 border-t border-emerald-200/60 flex flex-col space-y-1 w-full">
+                                <div className="mt-2 pt-2 border-t border-emerald-200/60 flex flex-col space-y-1 w-full pointer-events-none">
                                   {msg.buttons.map((btn: string, i: number) => (
-                                    <button key={i} className="py-2.5 px-3 bg-emerald-100 hover:bg-emerald-200 text-emerald-800 text-sm font-semibold rounded-xl text-center transition-colors flex items-center justify-center space-x-2">
+                                    <div key={i} className="py-2.5 px-3 bg-emerald-100 text-emerald-800 text-sm font-semibold rounded-xl text-center flex items-center justify-center space-x-2">
                                       <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" className="opacity-70"><polyline points="9 14 4 9 9 4"></polyline><path d="M20 20v-7a4 4 0 0 0-4-4H4"></path></svg>
                                       <span>{btn}</span>
-                                    </button>
+                                    </div>
                                   ))}
                                 </div>
                               )}
