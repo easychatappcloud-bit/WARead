@@ -280,18 +280,25 @@ export default function App() {
            }
        }
 
+       let displayMessage = msg.body;
+       if (msg.videoUrl) {
+           displayMessage = displayMessage ? `📹 ${displayMessage}` : '📹 Video';
+       } else if (msg.imageUrl) {
+           displayMessage = displayMessage ? `📷 ${displayMessage}` : '📷 Gambar';
+       }
+
        if (!existing) {
           map.set(msg.senderNumber, {
              senderName: msg.senderName,
              senderNumber: msg.senderNumber,
-             lastMessage: msg.body,
+             lastMessage: displayMessage,
              lastTimestamp: msg.timestamp,
              unreadCount: isUnread
           });
        } else {
           existing.unreadCount += isUnread;
           if (msg.timestamp >= existing.lastTimestamp) {
-             existing.lastMessage = msg.body;
+             existing.lastMessage = displayMessage;
              existing.lastTimestamp = msg.timestamp;
           }
           if ((existing.senderName === existing.senderNumber || existing.senderName === 'Unknown') && msg.senderName !== msg.senderNumber && msg.senderName !== 'Unknown') {
