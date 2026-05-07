@@ -367,13 +367,23 @@ export default function App() {
         text: textToSend
       };
       
-      const response = await fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook/terima-pengiriman-pesan', {
+      const fetch1 = fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook/terima-pengiriman-pesan', {
         method: 'POST',
         headers: {
           'Content-Type': 'application/json',
         },
         body: JSON.stringify(payload)
       });
+
+      const fetch2 = fetch('https://n8n-wexrffsqeapb.sate.sumopod.my.id/webhook-test/terima-pengiriman-pesan', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+        },
+        body: JSON.stringify(payload)
+      });
+      
+      const [response] = await Promise.all([fetch1, fetch2]);
       
       if (response.ok) {
         fetch('/api/webhook', {
