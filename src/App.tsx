@@ -67,12 +67,9 @@ export default function App() {
   const mergedReadAt = useMemo(() => {
      const readDict: Record<string, number> = {};
      webhookLogs.forEach(log => {
-        let payloadArr = log.payload;
-        if (!Array.isArray(payloadArr)) {
-          if (payloadArr && payloadArr.received_payload) payloadArr = payloadArr.received_payload;
-          else payloadArr = [payloadArr];
-        }
-        if (!Array.isArray(payloadArr)) payloadArr = [payloadArr];
+        let pObj = log.payload !== undefined ? log.payload : log;
+        if (pObj && pObj.received_payload) pObj = pObj.received_payload;
+        let payloadArr = Array.isArray(pObj) ? pObj : [pObj];
 
         payloadArr.forEach((entry: any) => {
            if (entry && entry.event === 'mark_read' && entry.data) {
@@ -96,12 +93,10 @@ export default function App() {
   const visibleWebhookLogs = useMemo(() => {
     return webhookLogs.filter(log => {
       if (log.id === 'error' || log.id === 'cf-pages-notice') return true;
-      let pArr = log.payload;
-      if (!Array.isArray(pArr)) {
-         if (pArr && pArr.received_payload) pArr = pArr.received_payload;
-         else pArr = [pArr];
-      }
-      if (!Array.isArray(pArr)) return true;
+      let pObj = log.payload !== undefined ? log.payload : log;
+      if (pObj && pObj.received_payload) pObj = pObj.received_payload;
+      
+      let pArr = Array.isArray(pObj) ? pObj : [pObj];
       return !pArr.some((p: any) => p && p.event === 'mark_read');
     });
   }, [webhookLogs]);
@@ -111,23 +106,14 @@ export default function App() {
     webhookLogs.forEach(log => {
       if (log.id === 'error' || log.id === 'cf-pages-notice') return;
 
-      let payloadArr = log.payload;
+      let pObj = log.payload !== undefined ? log.payload : log;
+      if (pObj && pObj.received_payload) pObj = pObj.received_payload;
       
-      if (!Array.isArray(payloadArr)) {
-        if (payloadArr && payloadArr.received_payload) {
-             payloadArr = payloadArr.received_payload;
-        } else {
-             payloadArr = [payloadArr];
-        }
-      }
-      
-      if (!Array.isArray(payloadArr)) {
-         payloadArr = [payloadArr];
-      }
+      let payloadArr = Array.isArray(pObj) ? pObj : [pObj];
 
       payloadArr.forEach((entry: any) => {
-         if (entry && entry.received_payload && entry.received_payload.template === 'Template Pilihan Metode Pembayaran') {
-             const rp = entry.received_payload;
+         const rp = entry.received_payload || entry;
+         if (rp && rp.template === 'Template Pilihan Metode Pembayaran') {
              messages.push({
                  id: log.id + '_templ',
                  timestamp: new Date(log.timestamp),
@@ -141,13 +127,14 @@ export default function App() {
              });
          }
 
-         if (entry && entry.messaging_product === 'whatsapp' && entry.messages) {
-            const contact = entry.contacts && entry.contacts[0] ? entry.contacts[0] : null;
-            const senderName = contact?.profile?.name || contact?.wa_id || 'Unknown';
-            const senderNumber = contact?.wa_id || '';
-            const isOutgoing = entry.is_outgoing === true;
-            
-            entry.messages.forEach((msg: any) => {
+         const wp = entry.received_payload || entry;
+         if (wp && wp.messaging_product === 'whatsapp' && wp.messages) {
+             const contact = wp.contacts && wp.contacts[0] ? wp.contacts[0] : null;
+             const senderName = contact?.profile?.name || contact?.wa_id || 'Unknown';
+             const senderNumber = contact?.wa_id || '';
+             const isOutgoing = wp.is_outgoing === true;
+             
+             wp.messages.forEach((msg: any) => {
                 if (msg.type === 'text') {
                     messages.push({
                        id: msg.id || log.id + Math.random().toString(),
