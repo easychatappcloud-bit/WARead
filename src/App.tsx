@@ -235,12 +235,13 @@ export default function App() {
             const senderName = entry.nama || senderNumber;
 
             messages.push({
-               id: `${log.id}_gambar`,
+               id: `${log.id}_media`,
                timestamp: new Date(log.timestamp),
                senderName,
                senderNumber,
                body: entry.caption || '',
                imageUrl: entry.image_url,
+               videoUrl: entry.video_url,
                isOutgoing: false,
                raw: log
             });
@@ -721,6 +722,11 @@ export default function App() {
                               {msg.imageUrl && (
                                 <div className="mb-2 w-full max-w-[300px] bg-slate-100 rounded-lg overflow-hidden border border-slate-200">
                                   <img src={msg.imageUrl} alt="attachment" className="w-full h-auto object-contain cursor-pointer" referrerPolicy="no-referrer" onClick={() => setFullscreenImage(msg.imageUrl)} />
+                                </div>
+                              )}
+                              {msg.videoUrl && (
+                                <div className="mb-2 w-full max-w-[300px] bg-black rounded-lg overflow-hidden border border-slate-200">
+                                  <video src={msg.videoUrl} controls className="w-full h-auto max-h-[300px] outline-none" preload="metadata" />
                                 </div>
                               )}
                               {msg.body && (
