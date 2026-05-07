@@ -4,7 +4,7 @@
  */
 
 import { useState, useEffect, useMemo, useRef } from 'react';
-import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search, X, Download, Smile } from 'lucide-react';
+import { Server, Send, Code, Cloud, RefreshCw, Activity, Clock, Database, CheckCircle2, MessageSquare, Terminal, Settings, Menu, Search, X, Download, Smile, ArrowLeft } from 'lucide-react';
 import EmojiPicker from 'emoji-picker-react';
 
 export default function App() {
@@ -582,7 +582,7 @@ export default function App() {
   return (
     <div className="h-screen bg-slate-50 flex flex-col font-sans overflow-hidden">
       {/* Header Navigation */}
-      <header className="h-16 bg-white border-b border-slate-200 flex items-center justify-between px-6 md:px-8 flex-shrink-0">
+      <header className="hidden md:flex h-16 bg-white border-b border-slate-200 items-center justify-between px-6 md:px-8 flex-shrink-0">
         <div className="flex items-center space-x-4">
           <button 
             onClick={() => setIsSidebarOpen(!isSidebarOpen)} 
@@ -612,7 +612,7 @@ export default function App() {
         
         {/* Sidebar Tabs */}
         {isSidebarOpen && (
-          <div className="w-full md:w-64 border-b md:border-b-0 md:border-r border-slate-200 bg-white p-4 flex flex-col space-y-2 flex-shrink-0">
+          <div className="hidden md:flex w-64 border-r border-slate-200 bg-white p-4 flex-col space-y-2 flex-shrink-0">
             <div className="text-xs font-bold text-slate-400 uppercase tracking-widest px-3 mb-2 mt-2">Menu Utama</div>
             <button 
               onClick={() => setActiveTab('inbox')}
@@ -639,12 +639,12 @@ export default function App() {
         )}
 
         {/* Main Content Area */}
-        <div className="flex-1 min-w-0 bg-slate-50 overflow-y-auto p-4 md:p-8 flex flex-col">
+        <div className="flex-1 w-full min-w-0 bg-slate-50 overflow-y-auto p-0 md:p-8 flex flex-col">
            {activeTab === 'inbox' && (
-             <div className="flex-1 min-h-0 flex bg-white rounded-2xl border border-slate-200 shadow-sm overflow-hidden relative">
+             <div className="flex-1 w-full min-h-0 flex bg-white md:rounded-2xl md:border border-slate-200 md:shadow-sm overflow-hidden relative">
                
                {/* Contacts Sidebar */}
-               <div className="w-1/3 md:w-80 border-r border-slate-200 flex flex-col bg-slate-50 z-20 shrink-0">
+               <div className={`w-full md:w-80 border-r border-slate-200 flex-col bg-slate-50 z-20 shrink-0 ${activeContact ? 'hidden md:flex' : 'flex'}`}>
                  <div className="p-4 border-b border-slate-200 bg-slate-100 flex items-center justify-between shadow-sm shrink-0">
                    <h2 className="text-sm font-bold text-slate-700 flex items-center space-x-2">
                      <MessageSquare className="w-5 h-5 text-emerald-600" />
@@ -710,12 +710,18 @@ export default function App() {
                </div>
 
                {/* Chat Panel */}
-               <div className="flex-1 flex flex-col bg-[#efeae2] relative h-full overflow-hidden">
+               <div className={`flex-1 flex flex-col bg-[#efeae2] relative h-full overflow-hidden ${!activeContact ? 'hidden md:flex' : 'flex'}`}>
                  <div className="absolute inset-0 opacity-[0.06] pointer-events-none z-0" style={{ backgroundImage: "url('https://www.transparenttextures.com/patterns/cubes.png')" }}></div>
                  
                  {activeContact ? (
                    <>
                      <div className="p-4 border-b border-slate-200 bg-slate-100 flex items-center shadow-sm z-10 shrink-0">
+                        <button 
+                           onClick={() => setActiveContact(null)} 
+                           className="md:hidden p-2 -ml-2 mr-1 rounded-full hover:bg-slate-200 text-slate-600 transition-colors"
+                        >
+                           <ArrowLeft className="w-5 h-5" />
+                        </button>
                         <div className="w-10 h-10 rounded-full bg-indigo-100 flex items-center justify-center text-indigo-700 font-bold mr-3 shadow-sm">
                            {contacts.find(c => c.senderNumber === activeContact)?.senderName?.charAt(0) || '#'}
                         </div>
